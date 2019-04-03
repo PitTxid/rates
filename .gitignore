@@ -1,0 +1,11 @@
+node_modules
+out
+.vscode
+src/app.js
+src/endscreen.js
+release-builds
+.DS_Store
+debug.log
+data.txt
+marketcap
+supply
