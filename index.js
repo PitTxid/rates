@@ -1,4 +1,3 @@
-const CoinMarketCap = require('coinmarketcap-api')
 const fs = require('fs')
 var request = require('request')
 const phantom = require('phantom');
@@ -55,8 +54,8 @@ function formatNumber(num) {
 async function getWebsiteContent(url, id, classname, cb){
   try
   {
-    driver = await phantom.create();
-    page = await driver.createPage();
+    var driver = await phantom.create();
+    var page = await driver.createPage();
     await page.property("viewportSize", {width: 1920, height: 1080});
     page.on('onConsoleMessage', (msg) => {
       // console.log('phantomjs page console message', msg);
@@ -80,6 +79,7 @@ async function getWebsiteContent(url, id, classname, cb){
       return document.getElementsById(s)[0].innerText
     }, id ? id : classname).then(async function(data){
       data = standardData(data)
+      await driver.exit();
       cb(data.split(/\n/))
     })
     :
@@ -87,6 +87,7 @@ async function getWebsiteContent(url, id, classname, cb){
       return document.getElementsByClassName(s)[0].innerText;
     }, id ? id : classname).then(async function(data){
       data = standardData(data)
+      await driver.exit();
       cb(data.split(/\n/))
     })
   }
