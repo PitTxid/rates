@@ -1,7 +1,7 @@
 const fs = require('fs')
 var request = require('request')
 const phantom = require('phantom');
-
+var isRunning = false
 var mainfile = "/var/www/html/rates/index.html"
 var supply = "/var/www/html/rates/supply"
 var marketcap = "/var/www/html/rates/marketcap"
@@ -19,7 +19,8 @@ var priceChangeLoc = "/var/www/html/rates/pricechange"
 
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
 var xsgUrl = "https://coinmarketcap.com/currencies/snowgem/"
-var btcUrl = "https://coinmarketcap.com/currencies/snowgem/"
+var btcUrl = "https://coinmarketcap.com/currencies/bitcoin/"
+var bchUrl = "https://coinmarketcap.com/currencies/bitcoin-cash/"
 
 function curlData(urlRequest, params){
   return new Promise(function(resolve){
@@ -52,6 +53,7 @@ function formatNumber(num) {
 }
 
 async function getWebsiteContent(url, id, classname, cb){
+  var data = {}
   try
   {
     var driver = await phantom.create();
@@ -94,92 +96,118 @@ async function getWebsiteContent(url, id, classname, cb){
   catch(ex)
   {
     console.log(ex)
-    await driver.exit();
     cb(data)
   }
 }
 
 function parseData(data){
   var rtn = {}
-  var index = data.findIndex(function(e){return e.toLowerCase().includes('price')})
-  rtn.price = parseFloat(data[index].split('|')[1].split(' ')[0].split('$')[1])
-  index = data.findIndex(function(e){return e.toLowerCase().includes('market cap')})
-  rtn.marketcap = parseFloat(data[index].split('|')[1].split(' ')[0].split('$')[1])
-  index = data.findIndex(function(e){return e.toLowerCase().includes('24 hour volume')})
-  rtn.volume24h = parseFloat(data[index].split('|')[1].split(' ')[0].split('$')[1])
-  index = data.findIndex(function(e){return e.toLowerCase().includes('circulating supply')})
-  rtn.circulating = parseFloat(data[index].split('|')[1].split(' ')[0])
-  index = data.findIndex(function(e){return e.toLowerCase().includes("yesterday's change")})
-  rtn.change = parseFloat(data[index].split('|')[1].split('(')[1].split(')')[0])
+  try
+  {
+    var index = data.findIndex(function(e){return e.toLowerCase().includes('price')})
+    rtn.price = parseFloat(data[index].split('|')[1].split(' ')[0].split('$')[1])
+    index = data.findIndex(function(e){return e.toLowerCase().includes('market cap')})
+    rtn.marketcap = parseFloat(data[index].split('|')[1].split(' ')[0].split('$')[1])
+    index = data.findIndex(function(e){return e.toLowerCase().includes('24 hour volume')})
+    rtn.volume24h = parseFloat(data[index].split('|')[1].split(' ')[0].split('$')[1])
+    index = data.findIndex(function(e){return e.toLowerCase().includes('circulating supply')})
+    rtn.circulating = parseFloat(data[index].split('|')[1].split(' ')[0])
+    index = data.findIndex(function(e){return e.toLowerCase().includes("yesterday's change")})
+    rtn.change = parseFloat(data[index].split('|')[1].split('(')[1].split(')')[0])
+  }
+  catch(ex){}
   return rtn
 }
 
 function createData(){
+  console.log("getting data")
   try
   {
     getWebsiteContent(xsgUrl, undefined, 'cmc-cc-summary-table', function(dataXSG){
+      dataXSG = parseData(dataXSG)
+      console.log(dataXSG)
       getWebsiteContent(btcUrl, undefined, 'cmc-cc-summary-table', function(dataBTC){
-        dataXSG = parseData(dataXSG)
         dataBTC = parseData(dataBTC)
-        console.log(dataXSG)
         console.log(dataBTC)
-        //Circulating supply
-        fs.writeFileSync(supply, formatNumber(parseFloat(dataXSG.circulating.toFixed(2))))
+        getWebsiteContent(bchUrl, undefined, 'cmc-cc-summary-table', async function(dataBCH){
+          dataBCH = parseData(dataBCH)
+          console.log(dataBCH)
+          //Circulating supply
+          fs.writeFileSync(supply, formatNumber(parseFloat(dataXSG.circulating.toFixed(2))))
 
-        //Market cap
-        fs.writeFileSync(marketcap, formatNumber(parseFloat((dataXSG.circulating * dataXSG.price).toFixed(2))))
+          //Market cap
+          fs.writeFileSync(marketcap, formatNumber(parseFloat((dataXSG.circulating * dataXSG.price).toFixed(2))))
 
-        getUSD(function cb(data){
-          // data = JSON.parse(JSON.stringify(data).replace('\"', '"'))
-          // fs.writeFileSync("data.txt", JSON.stringify(data, null, 2))
-          // var usdeur = data.result.eur.rate
-          // var usdrub = data.result.rub.rate
-          // var usdgbp = data.result.gbp.rate
-          data = JSON.parse(data.result)
-          var usdeur = data.eur.rate
-          var usdrub = data.rub.rate
-          var usdgbp = data.gbp.rate
-          
-          var result = []
-          var btcJson = {}
-          btcJson.code = "BTC"
-          btcJson.symbol = "฿"
-          btcJson.name = "Bitcoin"
-          btcJson.rate = parseFloat((dataXSG.price /dataBTC.price).toFixed(8))
+          getUSD(function cb(data){
+            // data = JSON.parse(JSON.stringify(data).replace('\"', '"'))
+            // fs.writeFileSync("data.txt", JSON.stringify(data, null, 2))
+            // var usdeur = data.result.eur.rate
+            // var usdrub = data.result.rub.rate
+            // var usdgbp = data.result.gbp.rate
+            data = JSON.parse(data.result)
+            var usdeur = data.eur.rate
+            var usdrub = data.rub.rate
+            var usdgbp = data.gbp.rate
+            
+            var result = []
 
-          var usdJson = {}
-          usdJson.code = "USD"
-          usdJson.symbol = "$"
-          usdJson.name = "US Dollar"
-          usdJson.rate = parseFloat(dataXSG.price.toFixed(3))
-          usdJson.pricechange = dataXSG.change
+            var btcJson = {}
+            btcJson.code = "BTC"
+            btcJson.symbol = "฿"
+            btcJson.name = "Bitcoin"
+            btcJson.rate = 1
 
-          var eurJson = {}
-          eurJson.code = "EUR"
-          eurJson.symbol = "€"
-          eurJson.name = "Euro"
-          eurJson.rate = parseFloat((dataXSG.price * usdeur).toFixed(3))
+            var xsgJson = {}
+            xsgJson.code = "XSG"
+            xsgJson.name = "SnowGem"
+            xsgJson.rate = parseFloat(dataBTC.price / dataXSG.price).toFixed(2)
+            xsgJson.price = parseFloat(dataXSG.price).toFixed(3)
+            xsgJson.pricechange = dataXSG.change
+            xsgJson.marketcap = dataXSG.marketcap
+            xsgJson.volume24h = dataXSG.volume24h
+            xsgJson.circulating = dataXSG.circulating
 
-          var rubJson = {}
-          rubJson.code = "RUB"
-          rubJson.symbol = "₽"
-          rubJson.name = "Russian Rouble"
-          rubJson.rate = parseFloat((dataXSG.price * usdrub).toFixed(3))
+            var bchJson = {}
+            bchJson.code = "BCH"
+            bchJson.name = "Bitcoin Cash"
+            bchJson.rate = parseFloat(dataBTC.price / dataBCH.price).toFixed(2)
 
-          var gbpJson = {}
-          gbpJson.code = "GBP"
-          gbpJson.symbol = "£"
-          gbpJson.name = "U.K. Pound Sterling"
-          gbpJson.rate = parseFloat((dataXSG.price * usdgbp).toFixed(3))
+            var usdJson = {}
+            usdJson.code = "USD"
+            usdJson.symbol = "$"
+            usdJson.name = "US Dollar"
+            usdJson.rate = parseFloat(dataBTC.price.toFixed(2))
 
-          result.push(btcJson)
-          result.push(usdJson)
-          result.push(eurJson)
-          result.push(rubJson)
-          result.push(gbpJson)
+            var eurJson = {}
+            eurJson.code = "EUR"
+            eurJson.symbol = "€"
+            eurJson.name = "Euro"
+            eurJson.rate = parseFloat(dataBTC.price * usdeur).toFixed(3)
 
-          fs.writeFileSync(mainfile, JSON.stringify(result))
-        })
+            var rubJson = {}
+            rubJson.code = "RUB"
+            rubJson.symbol = "₽"
+            rubJson.name = "Russian Rouble"
+            rubJson.rate = parseFloat(dataBTC.price * usdrub).toFixed(3)
+
+            var gbpJson = {}
+            gbpJson.code = "GBP"
+            gbpJson.symbol = "£"
+            gbpJson.name = "U.K. Pound Sterling"
+            gbpJson.rate = parseFloat(dataBTC.price * usdgbp).toFixed(3)
+
+            result.push(btcJson)
+            result.push(xsgJson)
+            result.push(bchJson)
+            result.push(usdJson)
+            result.push(eurJson)
+            result.push(rubJson)
+            result.push(gbpJson)
+
+            fs.writeFileSync(mainfile, JSON.stringify(result))
+            isRunning = false
+          })
+        }).catch(console.error)
       }).catch(console.error)
     }).catch(console.error)
   }
@@ -187,7 +215,16 @@ function createData(){
 }
 
 setInterval(() => {
-  createData()
+  if(!isRunning)
+  {
+    isRunning = true
+    createData()
+  }
+  else
+  {
+    console.log("is running")
+  }
+  console.log("sleep 20s")
 }, 20000);
 
 
