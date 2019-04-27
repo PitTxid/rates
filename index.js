@@ -2,20 +2,20 @@ const fs = require('fs')
 var request = require('request')
 const phantom = require('phantom');
 var isRunning = false
-// var mainfile = "/var/www/html/rates/index.html"
-// var supply = "/var/www/html/rates/supply"
-// var marketcap = "/var/www/html/rates/marketcap"
-// var currPrice = "/var/www/html/rates/price"
-// var currPriceNoRound = "/var/www/html/rates/pricenoround"
-// var priceChangeLoc = "/var/www/html/rates/pricechange"
+var mainfile = "/var/www/html/rates/index.html"
+var supply = "/var/www/html/rates/supply"
+var marketcap = "/var/www/html/rates/marketcap"
+var currPrice = "/var/www/html/rates/price"
+var currPriceNoRound = "/var/www/html/rates/pricenoround"
+var priceChangeLoc = "/var/www/html/rates/pricechange"
 
 
-var mainfile = "index.html"
-var supply = "supply"
-var marketcap = "marketcap"
-var currPrice = "price"
-var currPriceNoRound = "pricenoround"
-var priceChangeLoc = "pricechange"
+// var mainfile = "index.html"
+// var supply = "supply"
+// var marketcap = "marketcap"
+// var currPrice = "price"
+// var currPriceNoRound = "pricenoround"
+// var priceChangeLoc = "pricechange"
 
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
 var xsgUrl = "https://coinmarketcap.com/currencies/snowgem/"
@@ -194,33 +194,38 @@ function createData(){
         });
 
         data = JSON.parse(data.result)
-        var usdeur = data.eur.rate
-        var usdrub = data.rub.rate
-        var usdgbp = data.gbp.rate
+        var usd = 1
+        var usdeur = 1 / data.eur.rate
+        var usdrub = 1 / data.rub.rate
+        var usdgbp = 1 / data.gbp.rate
 
         var usdJson = {}
         usdJson.code = "USD"
         usdJson.symbol = "$"
         usdJson.name = "US Dollar"
-        usdJson.rate = parseFloat(btcJson.price.toFixed(2))
+        usdJson.rate = parseFloat(usd.toFixed(3))
+        usdJson.price = parseFloat(usd.toFixed(3))
 
         var eurJson = {}
         eurJson.code = "EUR"
         eurJson.symbol = "€"
         eurJson.name = "Euro"
-        eurJson.rate = parseFloat((btcJson.price * usdeur).toFixed(3))
+        eurJson.rate = parseFloat(data.eur.rate.toFixed(3))
+        eurJson.price = parseFloat(usdeur.toFixed(3))
 
         var rubJson = {}
         rubJson.code = "RUB"
         rubJson.symbol = "₽"
         rubJson.name = "Russian Rouble"
-        rubJson.rate = parseFloat((btcJson.price * usdrub).toFixed(3))
+        rubJson.rate = parseFloat(data.rub.rate.toFixed(3))
+        rubJson.price = parseFloat(usdrub.toFixed(3))
 
         var gbpJson = {}
         gbpJson.code = "GBP"
         gbpJson.symbol = "£"
         gbpJson.name = "U.K. Pound Sterling"
-        gbpJson.rate = parseFloat((btcJson.price * usdgbp).toFixed(3))
+        gbpJson.rate = parseFloat(data.gbp.rate.toFixed(3))
+        gbpJson.price = parseFloat((usdgbp).toFixed(3))
 
         finalResult.push(usdJson)
         finalResult.push(eurJson)
