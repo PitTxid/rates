@@ -2,26 +2,55 @@ const fs = require('fs')
 var request = require('request')
 const phantom = require('phantom');
 var isRunning = false
-var mainfile = "/var/www/html/rates/index.html"
-var supply = "/var/www/html/rates/supply"
-var marketcap = "/var/www/html/rates/marketcap"
-var currPrice = "/var/www/html/rates/price"
-var currPriceNoRound = "/var/www/html/rates/pricenoround"
-var priceChangeLoc = "/var/www/html/rates/pricechange"
+// var mainfile = "/var/www/html/rates/index.html"
+// var supply = "/var/www/html/rates/supply"
+// var marketcap = "/var/www/html/rates/marketcap"
+// var currPrice = "/var/www/html/rates/price"
+// var currPriceNoRound = "/var/www/html/rates/pricenoround"
+// var priceChangeLoc = "/var/www/html/rates/pricechange"
 
 
-// var mainfile = "index.html"
-// var supply = "supply"
-// var marketcap = "marketcap"
-// var currPrice = "price"
-// var currPriceNoRound = "pricenoround"
-// var priceChangeLoc = "pricechange"
+var mainfile = "index.html"
+var supply = "supply"
+var marketcap = "marketcap"
+var currPrice = "price"
+var currPriceNoRound = "pricenoround"
+var priceChangeLoc = "pricechange"
 
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
 var xsgUrl = "https://coinmarketcap.com/currencies/snowgem/"
 var btcUrl = "https://coinmarketcap.com/currencies/bitcoin/"
 var bchUrl = "https://coinmarketcap.com/currencies/bitcoin-cash/"
 var zecUrl = "https://coinmarketcap.com/currencies/zcash/"
+var dashUrl = "https://coinmarketcap.com/currencies/dash/"
+
+var coinist = [
+  {
+    name: 'Bitcoin',
+    symbol: 'btc',
+    url: btcUrl
+  },
+  {
+    name: 'SnowGem',
+    symbol: 'xsg',
+    url: xsgUrl
+  },
+  {
+    name: 'Bitcoin Cash',
+    symbol: 'bch',
+    url: bchUrl
+  },
+  {
+    name: 'Zcash',
+    symbol: 'zec',
+    url: zecUrl
+  },
+  {
+    name: 'Dash',
+    symbol: 'dash',
+    url: dashUrl
+  },
+]
 
 function curlData(urlRequest, params){
   return new Promise(function(resolve){
@@ -46,6 +75,8 @@ function getUSD(cb){
   var result = Promise.all(promisesToMake);
   result.then(function(result){
     cb(result[0])
+  }, (err) => {
+    cb(null)
   })
 }
 
@@ -84,9 +115,9 @@ function getWebsiteContent(coin, name, url, id, classname){
           rtnData.coin = coin
           rtnData.data = parseData(data.split(/\n/))
           rtnData.name = name
-          console.log(rtnData)
+          // console.log(rtnData)
           resolve(rtnData)
-        })
+        }).catch(_ => resolve(rtnData))
         :
         page.evaluate(function(s) {
           return document.getElementsByClassName(s)[0].innerText;
@@ -96,9 +127,9 @@ function getWebsiteContent(coin, name, url, id, classname){
           rtnData.coin = coin
           rtnData.data = parseData(data.split(/\n/))
           rtnData.name = name
-          console.log(rtnData)
+          // console.log(rtnData)
           resolve(rtnData)
-        })
+        }).catch(_ => resolve(rtnData))
       })
       function standardData(data){
         data = data.replace(/ \t|\t |\t/g, '|')
@@ -109,7 +140,7 @@ function getWebsiteContent(coin, name, url, id, classname){
     }
     catch(ex)
     {
-      fs.appendFileSync(ex.toString())
+      fs.appendFileSync('reject.log', ex.toString())
       driver.exit()
       resolve(rtnData)
     }
@@ -137,250 +168,287 @@ function parseData(data){
 
 
 function createData(){
+  var coinlistClone = JSON.parse(JSON.stringify(coinist))
   console.log("getting data")
   try
   {
-    var promisesToMake = [
-      getWebsiteContent('xsg', 'SnowGem', xsgUrl, undefined, 'cmc-cc-summary-table'),
-      getWebsiteContent('btc', 'Bitcoin', btcUrl, undefined, 'cmc-cc-summary-table'),
-      getWebsiteContent('bch', 'Bitcoin Cash', bchUrl, undefined, 'cmc-cc-summary-table'),
-      getWebsiteContent('zec', 'Zcash', zecUrl, undefined, 'cmc-cc-summary-table'),
-    ]
-    var result = Promise.all(promisesToMake);
-    result
-    .then(function(result){
-      var index = result.findIndex(function(e){return e.coin == 'xsg'})
+    getUSD(function cb(data){
+      data = JSON.parse(data.result)
+      var usd = 1
+      var usdeur = 1 / data.eur.rate
+      var usdrub = 1 / data.rub.rate
+      var usdgbp = 1 / data.gbp.rate
+
+      var finalResult = []
+      if(fs.existsSync(mainfile))
+        finalResult = JSON.parse(fs.readFileSync(mainfile))
+
+      var index = finalResult.findIndex(function(e){return e.code == 'USD'})
       if(index > -1)
       {
-        fs.writeFileSync(supply, formatNumber(parseFloat(result[index].data.circulating.toFixed(2))))
+        finalResult.splice(index, 1)
+      }
+      var usdJson = {}
+      usdJson.code = "USD"
+      usdJson.symbol = "$"
+      usdJson.name = "US Dollar"
+      usdJson.rate = parseFloat(usd.toFixed(3))
+      usdJson.price = parseFloat(usd.toFixed(3))
+      finalResult.push(usdJson)
 
-        //Market cap
-        fs.writeFileSync(marketcap, formatNumber(parseFloat((result[index].data.circulating * result[index].data.price).toFixed(2))))
+      index = finalResult.findIndex(function(e){return e.code == 'EUR'})
+      if(index > -1)
+      {
+        finalResult.splice(index, 1)
+      }
+      var eurJson = {}
+      eurJson.code = "EUR"
+      eurJson.symbol = "€"
+      eurJson.name = "Euro"
+      eurJson.rate = parseFloat(data.eur.rate.toFixed(3))
+      eurJson.price = parseFloat(usdeur.toFixed(3))
+      finalResult.push(eurJson)
+
+      index = finalResult.findIndex(function(e){return e.code == 'RUB'})
+      if(index > -1)
+      {
+        finalResult.splice(index, 1)
+      }
+      var rubJson = {}
+      rubJson.code = "RUB"
+      rubJson.symbol = "₽"
+      rubJson.name = "Russian Rouble"
+      rubJson.rate = parseFloat(data.rub.rate.toFixed(3))
+      rubJson.price = parseFloat(usdrub.toFixed(3))
+      finalResult.push(rubJson)
+
+      index = finalResult.findIndex(function(e){return e.code == 'GBP'})
+      if(index > -1)
+      {
+        finalResult.splice(index, 1)
+      }
+      var gbpJson = {}
+      gbpJson.code = "GBP"
+      gbpJson.symbol = "£"
+      gbpJson.name = "U.K. Pound Sterling"
+      gbpJson.rate = parseFloat(data.gbp.rate.toFixed(3))
+      gbpJson.price = parseFloat((usdgbp).toFixed(3))
+      finalResult.push(gbpJson)
+
+
+      fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+
+      function getData(element){
+        var promisesToMake = [
+          getWebsiteContent(element.symbol, element.name, element.url, undefined, 'cmc-cc-summary-table')
+        ]
+        var result = Promise.all(promisesToMake);
+        result
+        .then(function(result){
+          if(result && result.length > 0 && result[0].coin)
+          {
+            index = finalResult.findIndex(function(e){return e.code == result[0].coin.toUpperCase()})
+            if(index > -1)
+            {
+              finalResult.splice(index, 1)
+            }
+            console.log(result[0])
+            if(result[0].coin == 'btc'){
+              var btcJson = {}
+              btcJson.code = "BTC"
+              btcJson.symbol = "฿"
+              btcJson.name = "Bitcoin"
+              btcJson.rate = 1
+              btcJson.price = result[0].data.price
+              btcJson.pricechange = result[0].data.change
+              btcJson.marketcap = result[0].data.marketcap
+              btcJson.volume24h = result[0].data.volume24h
+              btcJson.circulating = result[0].data.circulating
+              finalResult.push(btcJson)
+              fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+
+              if(coinlistClone.length > 0){
+                var element = coinlistClone[0]
+                coinlistClone.splice(0,1)
+                getData(element)
+              }
+              else
+              {
+                setTimeout(() => {
+                  createData()
+                }, 20000);
+              }
+            }
+            else
+            {
+              indexBTC = finalResult.findIndex(function(e){return e.code == 'BTC'})
+
+              var coinJson = {}
+              coinJson.code = result[0].coin.toUpperCase()
+              coinJson.name = result[0].name
+              coinJson.rate = parseFloat((finalResult[indexBTC].price / result[0].data.price).toFixed(2))
+              coinJson.price = parseFloat((result[0].data.price).toFixed(3))
+              coinJson.pricechange = result[0].data.change
+              coinJson.marketcap = result[0].data.marketcap
+              coinJson.volume24h = result[0].data.volume24h
+              coinJson.circulating = result[0].data.circulating
+              finalResult.push(coinJson)
+              fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+
+              if(result[0].coin == 'xsg')
+              {
+                fs.writeFileSync(supply, formatNumber(parseFloat(coinJson.circulating.toFixed(2))))
+
+                //Market cap
+                fs.writeFileSync(marketcap, formatNumber(parseFloat((coinJson.circulating * coinJson.price).toFixed(2))))
+              }
+              if(coinlistClone.length > 0){
+                var element = coinlistClone[0]
+                coinlistClone.splice(0,1)
+                getData(element)
+              }
+              else
+              {
+                setTimeout(() => {
+                  createData()
+                }, 20000);
+              }
+            }
+          }
+        })
       }
 
+      var element = coinlistClone[0]
+      coinlistClone.splice(0,1)
+      getData(element)
+    });
 
-      getUSD(function cb(data){
-        var finalResult = []
-        var btcJson = {}
 
-        var index = result.findIndex(function(e){return e.coin == 'btc'})
-        if(index > -1)
-        {
-          btcJson.code = "BTC"
-          btcJson.symbol = "฿"
-          btcJson.name = "Bitcoin"
-          btcJson.rate = 1
-          btcJson.price = result[index].data.price
-          btcJson.pricechange = result[index].data.change
-          btcJson.marketcap = result[index].data.marketcap
-          btcJson.volume24h = result[index].data.volume24h
-          btcJson.circulating = result[index].data.circulating
-          finalResult.push(btcJson)
-        }
 
-        result.forEach(element => {
-          if(element.coin != 'btc') {
-            var coinJson = {}
-            coinJson.code = element.coin.toUpperCase()
-            coinJson.name = element.name
-            coinJson.rate = parseFloat((btcJson.price / element.data.price).toFixed(2))
-            coinJson.price = parseFloat((element.data.price).toFixed(3))
-            coinJson.pricechange = element.data.change
-            coinJson.marketcap = element.data.marketcap
-            coinJson.volume24h = element.data.volume24h
-            coinJson.circulating = element.data.circulating
-            finalResult.push(coinJson)
-          }
-        });
 
-        data = JSON.parse(data.result)
-        var usd = 1
-        var usdeur = 1 / data.eur.rate
-        var usdrub = 1 / data.rub.rate
-        var usdgbp = 1 / data.gbp.rate
-
-        var usdJson = {}
-        usdJson.code = "USD"
-        usdJson.symbol = "$"
-        usdJson.name = "US Dollar"
-        usdJson.rate = parseFloat(usd.toFixed(3))
-        usdJson.price = parseFloat(usd.toFixed(3))
-
-        var eurJson = {}
-        eurJson.code = "EUR"
-        eurJson.symbol = "€"
-        eurJson.name = "Euro"
-        eurJson.rate = parseFloat(data.eur.rate.toFixed(3))
-        eurJson.price = parseFloat(usdeur.toFixed(3))
-
-        var rubJson = {}
-        rubJson.code = "RUB"
-        rubJson.symbol = "₽"
-        rubJson.name = "Russian Rouble"
-        rubJson.rate = parseFloat(data.rub.rate.toFixed(3))
-        rubJson.price = parseFloat(usdrub.toFixed(3))
-
-        var gbpJson = {}
-        gbpJson.code = "GBP"
-        gbpJson.symbol = "£"
-        gbpJson.name = "U.K. Pound Sterling"
-        gbpJson.rate = parseFloat(data.gbp.rate.toFixed(3))
-        gbpJson.price = parseFloat((usdgbp).toFixed(3))
-
-        finalResult.push(usdJson)
-        finalResult.push(eurJson)
-        finalResult.push(rubJson)
-        finalResult.push(gbpJson)
-
-        fs.writeFileSync(mainfile, JSON.stringify(finalResult))
-        console.log(finalResult)
-        isRunning = false
-      })
-    }, (reason) => {
-      console.log(reason)
-      fs.appendFileSync('reject', reason)
-      isRunning = false
-    })
-
-    // getWebsiteContent(xsgUrl, undefined, 'cmc-cc-summary-table', function(dataXSG){
-    //   if(dataXSG)
+    // var promisesToMake = [
+    //   getWebsiteContent('xsg', 'SnowGem', xsgUrl, undefined, 'cmc-cc-summary-table'),
+    //   getWebsiteContent('btc', 'Bitcoin', btcUrl, undefined, 'cmc-cc-summary-table'),
+    //   getWebsiteContent('bch', 'Bitcoin Cash', bchUrl, undefined, 'cmc-cc-summary-table'),
+    //   getWebsiteContent('zec', 'Zcash', zecUrl, undefined, 'cmc-cc-summary-table'),
+    // ]
+    // var result = Promise.all(promisesToMake);
+    // result
+    // .then(function(result){
+    //   var index = result.findIndex(function(e){return e.coin == 'xsg'})
+    //   if(index > -1)
     //   {
-    //     dataXSG = parseData(dataXSG)
-    //     console.log(dataXSG)
-    //     getWebsiteContent(btcUrl, undefined, 'cmc-cc-summary-table', function(dataBTC){
-    //       if(dataBTC)
-    //       {
-    //         dataBTC = parseData(dataBTC)
-    //         console.log(dataBTC)
-    //         getWebsiteContent(bchUrl, undefined, 'cmc-cc-summary-table', async function(dataBCH){
-    //           if(dataBCH){
-    //             dataBCH = parseData(dataBCH)
-    //             console.log(dataBCH)
-    //             //Circulating supply
-    //             fs.writeFileSync(supply, formatNumber(parseFloat(dataXSG.circulating.toFixed(2))))
+    //     fs.writeFileSync(supply, formatNumber(parseFloat(result[index].data.circulating.toFixed(2))))
 
-    //             //Market cap
-    //             fs.writeFileSync(marketcap, formatNumber(parseFloat((dataXSG.circulating * dataXSG.price).toFixed(2))))
-
-    //             getUSD(function cb(data){
-    //               // data = JSON.parse(JSON.stringify(data).replace('\"', '"'))
-    //               // fs.writeFileSync("data.txt", JSON.stringify(data, null, 2))
-    //               // var usdeur = data.result.eur.rate
-    //               // var usdrub = data.result.rub.rate
-    //               // var usdgbp = data.result.gbp.rate
-    //               data = JSON.parse(data.result)
-    //               var usdeur = data.eur.rate
-    //               var usdrub = data.rub.rate
-    //               var usdgbp = data.gbp.rate
-                  
-    //               var result = []
-
-    //               var btcJson = {}
-    //               btcJson.code = "BTC"
-    //               btcJson.symbol = "฿"
-    //               btcJson.name = "Bitcoin"
-    //               btcJson.rate = 1
-    //               btcJson.pricechange = dataBTC.change
-    //               btcJson.marketcap = dataBTC.marketcap
-    //               btcJson.volume24h = dataBTC.volume24h
-    //               btcJson.circulating = dataBTC.circulating
-
-    //               var xsgJson = {}
-    //               xsgJson.code = "XSG"
-    //               xsgJson.name = "SnowGem"
-    //               xsgJson.rate = parseFloat((dataBTC.price / dataXSG.price).toFixed(2))
-    //               xsgJson.price = parseFloat((dataXSG.price).toFixed(3))
-    //               xsgJson.pricechange = dataXSG.change
-    //               xsgJson.marketcap = dataXSG.marketcap
-    //               xsgJson.volume24h = dataXSG.volume24h
-    //               xsgJson.circulating = dataXSG.circulating
-
-    //               var bchJson = {}
-    //               bchJson.code = "BCH"
-    //               bchJson.name = "Bitcoin Cash"
-    //               bchJson.rate = parseFloat((dataBTC.price / dataBCH.price).toFixed(2))
-    //               bchJson.pricechange = dataBCH.change
-    //               bchJson.marketcap = dataBCH.marketcap
-    //               bchJson.volume24h = dataBCH.volume24h
-    //               bchJson.circulating = dataBCH.circulating
-                  
-    //               var usdJson = {}
-    //               usdJson.code = "USD"
-    //               usdJson.symbol = "$"
-    //               usdJson.name = "US Dollar"
-    //               usdJson.rate = parseFloat(dataBTC.price.toFixed(2))
-
-    //               var eurJson = {}
-    //               eurJson.code = "EUR"
-    //               eurJson.symbol = "€"
-    //               eurJson.name = "Euro"
-    //               eurJson.rate = parseFloat((dataBTC.price * usdeur).toFixed(3))
-
-    //               var rubJson = {}
-    //               rubJson.code = "RUB"
-    //               rubJson.symbol = "₽"
-    //               rubJson.name = "Russian Rouble"
-    //               rubJson.rate = parseFloat((dataBTC.price * usdrub).toFixed(3))
-
-    //               var gbpJson = {}
-    //               gbpJson.code = "GBP"
-    //               gbpJson.symbol = "£"
-    //               gbpJson.name = "U.K. Pound Sterling"
-    //               gbpJson.rate = parseFloat((dataBTC.price * usdgbp).toFixed(3))
-
-    //               result.push(btcJson)
-    //               result.push(xsgJson)
-    //               result.push(bchJson)
-    //               result.push(usdJson)
-    //               result.push(eurJson)
-    //               result.push(rubJson)
-    //               result.push(gbpJson)
-
-    //               fs.writeFileSync(mainfile, JSON.stringify(result))
-    //               isRunning = false
-    //             })
-    //           }
-    //           else
-    //           {
-    //             isRunning = false
-    //           }
-    //         }).catch(() => {
-    //           isRunning = false
-    //         })
-    //       }
-    //       else
-    //       {
-    //         isRunning = false
-    //       }
-    //     }).catch(() => {
-    //       isRunning = false
-    //     })
+    //     //Market cap
+    //     fs.writeFileSync(marketcap, formatNumber(parseFloat((result[index].data.circulating * result[index].data.price).toFixed(2))))
     //   }
-    //   else
-    //   {
-    //     isRunning = false
-    //   }
-    // }).catch(() => {
-    //   isRunning = false
+
+
+    //   getUSD(function cb(data){
+    //     try {
+    //       var finalResult = []
+    //       var btcJson = {}
+
+    //       var index = result.findIndex(function(e){return e.coin == 'btc'})
+    //       if(index > -1)
+    //       {
+    //         btcJson.code = "BTC"
+    //         btcJson.symbol = "฿"
+    //         btcJson.name = "Bitcoin"
+    //         btcJson.rate = 1
+    //         btcJson.price = result[index].data.price
+    //         btcJson.pricechange = result[index].data.change
+    //         btcJson.marketcap = result[index].data.marketcap
+    //         btcJson.volume24h = result[index].data.volume24h
+    //         btcJson.circulating = result[index].data.circulating
+    //         finalResult.push(btcJson)
+    //       }
+
+    //       result.forEach(element => {
+    //         if(element.coin != 'btc') {
+    //           var coinJson = {}
+    //           coinJson.code = element.coin.toUpperCase()
+    //           coinJson.name = element.name
+    //           coinJson.rate = parseFloat((btcJson.price / element.data.price).toFixed(2))
+    //           coinJson.price = parseFloat((element.data.price).toFixed(3))
+    //           coinJson.pricechange = element.data.change
+    //           coinJson.marketcap = element.data.marketcap
+    //           coinJson.volume24h = element.data.volume24h
+    //           coinJson.circulating = element.data.circulating
+    //           finalResult.push(coinJson)
+    //         }
+    //       });
+    //       if(data && data.result && data.error == false)
+    //       {
+    //         data = JSON.parse(data.result)
+    //         var usd = 1
+    //         var usdeur = 1 / data.eur.rate
+    //         var usdrub = 1 / data.rub.rate
+    //         var usdgbp = 1 / data.gbp.rate
+
+    //         var usdJson = {}
+    //         usdJson.code = "USD"
+    //         usdJson.symbol = "$"
+    //         usdJson.name = "US Dollar"
+    //         usdJson.rate = parseFloat(usd.toFixed(3))
+    //         usdJson.price = parseFloat(usd.toFixed(3))
+
+    //         var eurJson = {}
+    //         eurJson.code = "EUR"
+    //         eurJson.symbol = "€"
+    //         eurJson.name = "Euro"
+    //         eurJson.rate = parseFloat(data.eur.rate.toFixed(3))
+    //         eurJson.price = parseFloat(usdeur.toFixed(3))
+
+    //         var rubJson = {}
+    //         rubJson.code = "RUB"
+    //         rubJson.symbol = "₽"
+    //         rubJson.name = "Russian Rouble"
+    //         rubJson.rate = parseFloat(data.rub.rate.toFixed(3))
+    //         rubJson.price = parseFloat(usdrub.toFixed(3))
+
+    //         var gbpJson = {}
+    //         gbpJson.code = "GBP"
+    //         gbpJson.symbol = "£"
+    //         gbpJson.name = "U.K. Pound Sterling"
+    //         gbpJson.rate = parseFloat(data.gbp.rate.toFixed(3))
+    //         gbpJson.price = parseFloat((usdgbp).toFixed(3))
+
+    //         finalResult.push(usdJson)
+    //         finalResult.push(eurJson)
+    //         finalResult.push(rubJson)
+    //         finalResult.push(gbpJson)
+
+    //         fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+    //         console.log("Data is updated")
+    //         setTimeout(() => {
+    //           createData()
+    //         }, 20000);
+    //       }
+    //     }
+    //     catch(ex){
+    //       setTimeout(() => {
+    //         createData()
+    //       }, 20000);
+    //     }
+    //   })
+    // }, (reason) => {
+    //   console.log(reason)
+    //   fs.appendFileSync('reject.log', reason.message)
+    //   setTimeout(() => {
+    //     createData()
+    //   }, 20000);
     // })
   }
   catch(ex){
-    isRunning = false
+    setTimeout(() => {
+      createData()
+    }, 20000);
   }
 }
 
-setInterval(() => {
-  if(!isRunning)
-  {
-    isRunning = true
-    createData()
-  }
-  else
-  {
-    console.log("is running")
-  }
-  console.log("sleep 20s")
-}, 20000);
+createData()
 
 
 // getWebsiteContent('https://coinmarketcap.com/currencies/snowgem/', undefined, 'cmc-cc-summary-table', function(data){
