@@ -56,7 +56,7 @@ function curlData(urlRequest, params){
   return new Promise(function(resolve){
     request.post(urlRequest, {
       json: params
-    }, (error, res, body) => {
+    }, function(error, res, body){
       var result = {}
       if (error) {
         result.error = true
@@ -75,7 +75,7 @@ function getUSD(cb){
   var result = Promise.all(promisesToMake);
   result.then(function(result){
     cb(result[0])
-  }, (err) => {
+  }, function(err) {
     cb(null)
   })
 }
@@ -91,56 +91,55 @@ function getWebsiteContent(coin, name, url, id, classname){
     try
     {
       var page = await driver.createPage();
-      page.on('onConsoleMessage', (msg) => {
+      page.on('onConsoleMessage', function (msg) {
         // console.log('phantomjs page console message', msg);
       });
-      page.on('onError', (msg) => {
+      page.on('onError', function (msg)  {
         // console.log('phantomjs page console message', msg);
       });
 
-      page.property("viewportSize", {width: 1920, height: 1080}).then(_ => {
+      page.property("viewportSize", {width: 1920, height: 1080}).then(function(){
 
       })
 
       page.on('onResourceRequested', function(requestData) {
         // console.info('Requesting', requestData.url);
       })
-      page.open(url).then(_ => {
-        id ? 
-        page.evaluate(function(s) {
-          return document.getElementsById(s)[0].innerText
-        }, id ? id : classname).then(async function(data){
-          data = standardData(data)
-          driver.exit();
-          rtnData.coin = coin
-          rtnData.data = parseData(data.split(/\n/))
-          rtnData.name = name
-          // console.log(rtnData)
-          resolve(rtnData)
-        }).catch(_ => resolve(rtnData))
-        :
-        page.evaluate(function(s) {
-          return document.getElementsByClassName(s)[0].innerText;
-        }, id ? id : classname).then(async function(data){
-          data = standardData(data)
-          driver.exit();
-          rtnData.coin = coin
-          rtnData.data = parseData(data.split(/\n/))
-          rtnData.name = name
-          // console.log(rtnData)
-          resolve(rtnData)
-        }).catch(_ => resolve(rtnData))
+
+      // page.property('onCallback', (data) => {
+      //   console.log(data)
+      //   if (data.type === "loadFinished") {
+      //       // do some testing
+      //   }
+      // })
+      page.open(url).then(async function() {
+        var data = id ? 
+          await page.evaluate(function(s) {
+            return document.getElementsById(s)[0].innerText
+          }, id ? id : classname)
+          :
+          await page.evaluate(function(s) {
+            return document.getElementsByClassName(s)[0].innerText;
+          }, id ? id : classname)
+
+        data = standardData(data)
+        rtnData.coin = coin
+        rtnData.data = parseData(data.split(/\n/))
+        rtnData.name = name
+        // console.log(rtnData)
+        driver.exit()
+        resolve(rtnData)
+
+        function standardData(data){
+          data = data.replace(/ \t|\t |\t/g, '|')
+          data = data.replace(/ \n/g, ' ')
+          return data
+        }
       })
-      function standardData(data){
-        data = data.replace(/ \t|\t |\t/g, '|')
-        data = data.replace(/ \n/g, ' ')
-        return data
-      }
-      
     }
     catch(ex)
     {
-      fs.appendFileSync('reject.log', ex.toString())
+      fs.appendFileSync('reject.log', ex.toString() + '\n')
       driver.exit()
       resolve(rtnData)
     }
@@ -274,7 +273,7 @@ function createData(){
               }
               else
               {
-                setTimeout(() => {
+                setTimeout(function(){
                   createData()
                 }, 20000);
               }
@@ -309,7 +308,7 @@ function createData(){
               }
               else
               {
-                setTimeout(() => {
+                setTimeout(function(){
                   createData()
                 }, 20000);
               }
@@ -442,7 +441,7 @@ function createData(){
     // })
   }
   catch(ex){
-    setTimeout(() => {
+    setTimeout(function() {
       createData()
     }, 20000);
   }
