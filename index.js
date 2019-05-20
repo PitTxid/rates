@@ -4,20 +4,20 @@ const phantom = require('phantom');
 var isRunning = false
 var currTime = 0
 var lastTime = 0
-// var mainfile = "/var/www/html/rates/index.html"
-// var supply = "/var/www/html/rates/supply"
-// var marketcap = "/var/www/html/rates/marketcap"
-// var currPrice = "/var/www/html/rates/price"
-// var currPriceNoRound = "/var/www/html/rates/pricenoround"
-// var priceChangeLoc = "/var/www/html/rates/pricechange"
+var mainfile = "/var/www/html/rates/index.html"
+var supply = "/var/www/html/rates/supply"
+var marketcap = "/var/www/html/rates/marketcap"
+var currPrice = "/var/www/html/rates/price"
+var currPriceNoRound = "/var/www/html/rates/pricenoround"
+var priceChangeLoc = "/var/www/html/rates/pricechange"
 
 
-var mainfile = "index.html"
-var supply = "supply"
-var marketcap = "marketcap"
-var currPrice = "price"
-var currPriceNoRound = "pricenoround"
-var priceChangeLoc = "pricechange"
+// var mainfile = "index.html"
+// var supply = "supply"
+// var marketcap = "marketcap"
+// var currPrice = "price"
+// var currPriceNoRound = "pricenoround"
+// var priceChangeLoc = "pricechange"
 
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
 var xsgUrl = "https://coinmarketcap.com/currencies/snowgem/"
@@ -92,7 +92,7 @@ function formatNumber(num) {
   return num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,')
 }
 
-function getWebsiteContent(coin, name, url, id, classname){
+function getWebsiteContentOld(coin, name, url, id, classname){
   return new Promise(async function(resolve){
     var driver = await phantom.create();
     var rtnData = {}
@@ -158,15 +158,15 @@ function parseData(data){
   try
   {
     var index = data.findIndex(function(e){return e.toLowerCase().includes('price')})
-    rtn.price = parseFloat(data[index].split('|')[1].split(' ')[0].split('$')[1])
+    rtn.price = parseFloat(data[index].split('|')[1])
     index = data.findIndex(function(e){return e.toLowerCase().includes('market cap')})
-    rtn.marketcap = parseFloat(data[index].split('|')[1].split(' ')[0].split('$')[1])
+    rtn.marketcap = parseFloat(data[index].split('|')[1])
     index = data.findIndex(function(e){return e.toLowerCase().includes('24 hour volume')})
-    rtn.volume24h = parseFloat(data[index].split('|')[1].split(' ')[0].split('$')[1])
+    rtn.volume24h = parseFloat(data[index].split('|')[1])
     index = data.findIndex(function(e){return e.toLowerCase().includes('circulating supply')})
-    rtn.circulating = parseFloat(data[index].split('|')[1].split(' ')[0])
-    index = data.findIndex(function(e){return e.toLowerCase().includes("yesterday's change")})
-    rtn.change = parseFloat(data[index].split('|')[1].split('(')[1].split(')')[0])
+    rtn.circulating = parseFloat(data[index].split('|')[1])
+    index = data.findIndex(function(e){return e.toLowerCase().includes("coin change")})
+    rtn.change = parseFloat(data[index].split('|')[1])
   }
   catch(ex){}
   return rtn
@@ -247,7 +247,7 @@ function createData(){
 
       function getData(element){
         var promisesToMake = [
-          getWebsiteContent(element.symbol, element.name, element.url, undefined, 'cmc-cc-summary-table')
+          getWebsiteContent(element.symbol, element.name, element.url)
         ]
         var result = Promise.all(promisesToMake);
         result
@@ -259,8 +259,8 @@ function createData(){
             {
               finalResult.splice(index, 1)
             }
-            console.log(result[0])
             if(result[0].coin == 'btc'){
+              console.log(result[0])
               var btcJson = {}
               btcJson.code = "BTC"
               btcJson.symbol = "฿"
@@ -277,7 +277,9 @@ function createData(){
               if(coinlistClone.length > 0){
                 var element = coinlistClone[0]
                 coinlistClone.splice(0,1)
-                getData(element)
+                setTimeout(function(){
+                  getData(element)
+                }, 2000);
               }
               else
               {
@@ -312,14 +314,33 @@ function createData(){
               if(coinlistClone.length > 0){
                 var element = coinlistClone[0]
                 coinlistClone.splice(0,1)
-                getData(element)
+                setTimeout(function(){
+                  getData(element)
+                }, 2000);
               }
               else
               {
                 setTimeout(function(){
                   createData()
+                  console.log("finished")
                 }, 20000);
               }
+            }
+          }
+          else {
+            if(coinlistClone.length > 0){
+              var element = coinlistClone[0]
+              coinlistClone.splice(0,1)
+              setTimeout(function(){
+                getData(element)
+              }, 2000);
+            }
+            else
+            {
+              setTimeout(function(){
+                console.log("finished")
+                createData()
+              }, 20000);
             }
           }
         })
@@ -457,11 +478,48 @@ function createData(){
 
 createData()
 
-request(xsgUrl, function (error, response, body) {
-  console.error('error:', error); // Print the error if one occurred
-  console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-  console.log('body:', body); // Print the HTML for the Google homepage.
-});
+function getWebsiteContent(coin, name, url){
+  return new Promise(async function(resolve){
+    var rtnData = {}
+    getData()
+    function getData(){
+      request(url, function (error, response, body) {
+        // console.error('error:', error); // Print the error if one occurred
+        // console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+        // console.log('body:', body); // Print the HTML for the Google homepage.
+        try {
+          var pricechange = body.split("details-panel-item--price")[2].split("toolbar-buttons")[0]
+          pricechange = pricechange.split("toolbar-buttons")[0]
+          pricechange = pricechange.split("data-format-percentage")[1].split("</span>")[0].split(">")[1]
+          var split = body.split("cmc-cc-summary-table")[1]
+          split = split.split("/table")[0]
+          split = split.split("<th scope=\"row\">\n")
+          var temp = []
+          split.forEach(e => {
+            if(e.toLowerCase().includes('price') || e.toLowerCase().includes('market cap') || e.toLowerCase().includes('24 hour volume') ||
+            e.toLowerCase().includes('circulating supply'))
+            {
+              temp.push(e)
+            }
+          });
+          for(var i = 0; i < temp.length; i++) {
+            var splt = temp[i].split("\n</th>")
+            var data = splt[1].split("<td>")[1].split("</td>")[0].split("</span>")[0].split(">")
+            temp[i] = splt[0] + "|" + data[data.length - 1].replace(/,|\n|/g, '')
+          }
+          temp.push("Coin change|" + pricechange)
+          rtnData.coin = coin
+          rtnData.data = parseData(temp)
+          rtnData.name = name
+          resolve(rtnData)
+        }
+        catch(ex){
+          getData()
+        }
+      })
+    }
+  })
+}
 
 setInterval(function() {
   currTime = Math.floor(Date.now() / 1000)
