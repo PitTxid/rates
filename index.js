@@ -2,6 +2,8 @@ const fs = require('fs')
 var request = require('request')
 const phantom = require('phantom');
 var isRunning = false
+var currTime = 0
+var lastTime = 0
 // var mainfile = "/var/www/html/rates/index.html"
 // var supply = "/var/www/html/rates/supply"
 // var marketcap = "/var/www/html/rates/marketcap"
@@ -23,6 +25,7 @@ var btcUrl = "https://coinmarketcap.com/currencies/bitcoin/"
 var bchUrl = "https://coinmarketcap.com/currencies/bitcoin-cash/"
 var zecUrl = "https://coinmarketcap.com/currencies/zcash/"
 var dashUrl = "https://coinmarketcap.com/currencies/dash/"
+var zenUrl = "https://coinmarketcap.com/currencies/zencash/"
 
 var coinist = [
   {
@@ -49,6 +52,11 @@ var coinist = [
     name: 'Dash',
     symbol: 'dash',
     url: dashUrl
+  },
+  {
+    name: 'Horizen',
+    symbol: 'zen',
+    url: zenUrl
   },
 ]
 
@@ -112,35 +120,34 @@ function getWebsiteContent(coin, name, url, id, classname){
       //       // do some testing
       //   }
       // })
-      page.open(url).then(async function() {
-        var data = id ? 
-          await page.evaluate(function(s) {
-            return document.getElementsById(s)[0].innerText
-          }, id ? id : classname)
-          :
-          await page.evaluate(function(s) {
-            return document.getElementsByClassName(s)[0].innerText;
-          }, id ? id : classname)
+      await page.open(url)
+      var data = id ? 
+        await page.evaluate(function(s) {
+          return document.getElementsById(s)[0].innerText
+        }, id ? id : classname)
+        :
+        await page.evaluate(function(s) {
+          return document.getElementsByClassName(s)[0].innerText;
+        }, id ? id : classname)
 
-        data = standardData(data)
-        rtnData.coin = coin
-        rtnData.data = parseData(data.split(/\n/))
-        rtnData.name = name
-        // console.log(rtnData)
-        driver.exit()
-        resolve(rtnData)
+      data = standardData(data)
+      rtnData.coin = coin
+      rtnData.data = parseData(data.split(/\n/))
+      rtnData.name = name
+      // console.log(rtnData)
+      await driver.exit()
+      resolve(rtnData)
 
-        function standardData(data){
-          data = data.replace(/ \t|\t |\t/g, '|')
-          data = data.replace(/ \n/g, ' ')
-          return data
-        }
-      })
+      function standardData(data){
+        data = data.replace(/ \t|\t |\t/g, '|')
+        data = data.replace(/ \n/g, ' ')
+        return data
+      }
     }
     catch(ex)
     {
       fs.appendFileSync('reject.log', ex.toString() + '\n')
-      driver.exit()
+      await driver.exit()
       resolve(rtnData)
     }
   })
@@ -168,6 +175,7 @@ function parseData(data){
 
 function createData(){
   var coinlistClone = JSON.parse(JSON.stringify(coinist))
+  lastTime = Math.floor(Date.now() / 1000)
   console.log("getting data")
   try
   {
@@ -281,7 +289,7 @@ function createData(){
             else
             {
               indexBTC = finalResult.findIndex(function(e){return e.code == 'BTC'})
-
+              console.log(result[0])
               var coinJson = {}
               coinJson.code = result[0].coin.toUpperCase()
               coinJson.name = result[0].name
@@ -449,6 +457,19 @@ function createData(){
 
 createData()
 
+request(xsgUrl, function (error, response, body) {
+  console.error('error:', error); // Print the error if one occurred
+  console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+  console.log('body:', body); // Print the HTML for the Google homepage.
+});
+
+setInterval(function() {
+  currTime = Math.floor(Date.now() / 1000)
+  if(currTime - lastTime > 5 * 60 * 1000)
+  {
+    createData()
+  }
+}, 1000);
 
 // getWebsiteContent('https://coinmarketcap.com/currencies/snowgem/', undefined, 'cmc-cc-summary-table', function(data){
 //   fs.writeFileSync("data.txt", data[0])
