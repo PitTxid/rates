@@ -4,24 +4,26 @@ const phantom = require('phantom');
 var isRunning = false
 var currTime = 0
 var lastTime = 0
-var mainfile = "/var/www/html/rates/index.html"
-var supply = "/var/www/html/rates/supply"
-var marketcap = "/var/www/html/rates/marketcap"
-var currPrice = "/var/www/html/rates/price"
-var currPriceNoRound = "/var/www/html/rates/pricenoround"
-var priceChangeLoc = "/var/www/html/rates/pricechange"
+
+// var mainfile = "/var/www/html/rates/index.html"
+// var supply = "/var/www/html/rates/supply"
+// var marketcap = "/var/www/html/rates/marketcap"
+// var currPrice = "/var/www/html/rates/price"
+// var currPriceNoRound = "/var/www/html/rates/pricenoround"
+// var priceChangeLoc = "/var/www/html/rates/pricechange"
 
 
-// var mainfile = "index.html"
-// var supply = "supply"
-// var marketcap = "marketcap"
-// var currPrice = "price"
-// var currPriceNoRound = "pricenoround"
-// var priceChangeLoc = "pricechange"
+var mainfile = "index.html"
+var supply = "supply"
+var marketcap = "marketcap"
+var currPrice = "price"
+var currPriceNoRound = "pricenoround"
+var priceChangeLoc = "pricechange"
 
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
 var xsgUrl = "https://coinmarketcap.com/currencies/snowgem/"
 var btcUrl = "https://coinmarketcap.com/currencies/bitcoin/"
+var ethUrl = "https://coinmarketcap.com/currencies/ethereum/"
 var bchUrl = "https://coinmarketcap.com/currencies/bitcoin-cash/"
 var zecUrl = "https://coinmarketcap.com/currencies/zcash/"
 var dashUrl = "https://coinmarketcap.com/currencies/dash/"
@@ -32,6 +34,11 @@ var coinist = [
     name: 'Bitcoin',
     symbol: 'btc',
     url: btcUrl
+  },
+  {
+    name: 'Ethereum',
+    symbol: 'eth',
+    url: ethUrl
   },
   {
     name: 'SnowGem',
@@ -177,9 +184,10 @@ function createData(){
   var coinlistClone = JSON.parse(JSON.stringify(coinist))
   lastTime = Math.floor(Date.now() / 1000)
   console.log("getting data")
-  try
-  {
-    getUSD(function cb(data){
+
+  getUSD(function cb(data){
+    try
+    {
       data = JSON.parse(data.result)
       var usd = 1
       var usdeur = 1 / data.eur.rate
@@ -279,7 +287,36 @@ function createData(){
                 coinlistClone.splice(0,1)
                 setTimeout(function(){
                   getData(element)
-                }, 2000);
+                }, 10000);
+              }
+              else
+              {
+                setTimeout(function(){
+                  createData()
+                }, 20000);
+              }
+            }
+            else if(result[0].coin == 'eth'){
+              console.log(result[0])
+              var ethJson = {}
+              ethJson.code = "ETH"
+              ethJson.symbol = "E"
+              ethJson.name = "Ethereum"
+              ethJson.rate = 1
+              ethJson.price = result[0].data.price
+              ethJson.pricechange = result[0].data.change
+              ethJson.marketcap = result[0].data.marketcap
+              ethJson.volume24h = result[0].data.volume24h
+              ethJson.circulating = result[0].data.circulating
+              finalResult.push(ethJson)
+              fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+
+              if(coinlistClone.length > 0){
+                var element = coinlistClone[0]
+                coinlistClone.splice(0,1)
+                setTimeout(function(){
+                  getData(element)
+                }, 10000);
               }
               else
               {
@@ -291,11 +328,13 @@ function createData(){
             else
             {
               indexBTC = finalResult.findIndex(function(e){return e.code == 'BTC'})
+              indexETH = finalResult.findIndex(function(e){return e.code == 'ETH'})
               console.log(result[0])
               var coinJson = {}
               coinJson.code = result[0].coin.toUpperCase()
               coinJson.name = result[0].name
               coinJson.rate = parseFloat((finalResult[indexBTC].price / result[0].data.price).toFixed(2))
+              coinJson.rateETH = parseFloat((finalResult[indexETH].price / result[0].data.price).toFixed(2))
               coinJson.price = parseFloat((result[0].data.price).toFixed(3))
               coinJson.pricechange = result[0].data.change
               coinJson.marketcap = result[0].data.marketcap
@@ -306,6 +345,8 @@ function createData(){
 
               if(result[0].coin == 'xsg')
               {
+                fs.writeFileSync(currPrice, formatNumber(parseFloat(coinJson.price.toFixed(3))))
+                fs.writeFileSync(currPriceNoRound, formatNumber(parseFloat(coinJson.price)))
                 fs.writeFileSync(supply, formatNumber(parseFloat(coinJson.circulating.toFixed(2))))
 
                 //Market cap
@@ -316,7 +357,7 @@ function createData(){
                 coinlistClone.splice(0,1)
                 setTimeout(function(){
                   getData(element)
-                }, 2000);
+                }, 10000);
               }
               else
               {
@@ -333,7 +374,7 @@ function createData(){
               coinlistClone.splice(0,1)
               setTimeout(function(){
                 getData(element)
-              }, 2000);
+              }, 10000);
             }
             else
             {
@@ -345,135 +386,17 @@ function createData(){
           }
         })
       }
-
       var element = coinlistClone[0]
       coinlistClone.splice(0,1)
       getData(element)
-    });
+    }
+    catch(ex){
+      setTimeout(function() {
+        createData()
+      }, 20000);
+    }
 
-
-
-
-    // var promisesToMake = [
-    //   getWebsiteContent('xsg', 'SnowGem', xsgUrl, undefined, 'cmc-cc-summary-table'),
-    //   getWebsiteContent('btc', 'Bitcoin', btcUrl, undefined, 'cmc-cc-summary-table'),
-    //   getWebsiteContent('bch', 'Bitcoin Cash', bchUrl, undefined, 'cmc-cc-summary-table'),
-    //   getWebsiteContent('zec', 'Zcash', zecUrl, undefined, 'cmc-cc-summary-table'),
-    // ]
-    // var result = Promise.all(promisesToMake);
-    // result
-    // .then(function(result){
-    //   var index = result.findIndex(function(e){return e.coin == 'xsg'})
-    //   if(index > -1)
-    //   {
-    //     fs.writeFileSync(supply, formatNumber(parseFloat(result[index].data.circulating.toFixed(2))))
-
-    //     //Market cap
-    //     fs.writeFileSync(marketcap, formatNumber(parseFloat((result[index].data.circulating * result[index].data.price).toFixed(2))))
-    //   }
-
-
-    //   getUSD(function cb(data){
-    //     try {
-    //       var finalResult = []
-    //       var btcJson = {}
-
-    //       var index = result.findIndex(function(e){return e.coin == 'btc'})
-    //       if(index > -1)
-    //       {
-    //         btcJson.code = "BTC"
-    //         btcJson.symbol = "฿"
-    //         btcJson.name = "Bitcoin"
-    //         btcJson.rate = 1
-    //         btcJson.price = result[index].data.price
-    //         btcJson.pricechange = result[index].data.change
-    //         btcJson.marketcap = result[index].data.marketcap
-    //         btcJson.volume24h = result[index].data.volume24h
-    //         btcJson.circulating = result[index].data.circulating
-    //         finalResult.push(btcJson)
-    //       }
-
-    //       result.forEach(element => {
-    //         if(element.coin != 'btc') {
-    //           var coinJson = {}
-    //           coinJson.code = element.coin.toUpperCase()
-    //           coinJson.name = element.name
-    //           coinJson.rate = parseFloat((btcJson.price / element.data.price).toFixed(2))
-    //           coinJson.price = parseFloat((element.data.price).toFixed(3))
-    //           coinJson.pricechange = element.data.change
-    //           coinJson.marketcap = element.data.marketcap
-    //           coinJson.volume24h = element.data.volume24h
-    //           coinJson.circulating = element.data.circulating
-    //           finalResult.push(coinJson)
-    //         }
-    //       });
-    //       if(data && data.result && data.error == false)
-    //       {
-    //         data = JSON.parse(data.result)
-    //         var usd = 1
-    //         var usdeur = 1 / data.eur.rate
-    //         var usdrub = 1 / data.rub.rate
-    //         var usdgbp = 1 / data.gbp.rate
-
-    //         var usdJson = {}
-    //         usdJson.code = "USD"
-    //         usdJson.symbol = "$"
-    //         usdJson.name = "US Dollar"
-    //         usdJson.rate = parseFloat(usd.toFixed(3))
-    //         usdJson.price = parseFloat(usd.toFixed(3))
-
-    //         var eurJson = {}
-    //         eurJson.code = "EUR"
-    //         eurJson.symbol = "€"
-    //         eurJson.name = "Euro"
-    //         eurJson.rate = parseFloat(data.eur.rate.toFixed(3))
-    //         eurJson.price = parseFloat(usdeur.toFixed(3))
-
-    //         var rubJson = {}
-    //         rubJson.code = "RUB"
-    //         rubJson.symbol = "₽"
-    //         rubJson.name = "Russian Rouble"
-    //         rubJson.rate = parseFloat(data.rub.rate.toFixed(3))
-    //         rubJson.price = parseFloat(usdrub.toFixed(3))
-
-    //         var gbpJson = {}
-    //         gbpJson.code = "GBP"
-    //         gbpJson.symbol = "£"
-    //         gbpJson.name = "U.K. Pound Sterling"
-    //         gbpJson.rate = parseFloat(data.gbp.rate.toFixed(3))
-    //         gbpJson.price = parseFloat((usdgbp).toFixed(3))
-
-    //         finalResult.push(usdJson)
-    //         finalResult.push(eurJson)
-    //         finalResult.push(rubJson)
-    //         finalResult.push(gbpJson)
-
-    //         fs.writeFileSync(mainfile, JSON.stringify(finalResult))
-    //         console.log("Data is updated")
-    //         setTimeout(() => {
-    //           createData()
-    //         }, 20000);
-    //       }
-    //     }
-    //     catch(ex){
-    //       setTimeout(() => {
-    //         createData()
-    //       }, 20000);
-    //     }
-    //   })
-    // }, (reason) => {
-    //   console.log(reason)
-    //   fs.appendFileSync('reject.log', reason.message)
-    //   setTimeout(() => {
-    //     createData()
-    //   }, 20000);
-    // })
-  }
-  catch(ex){
-    setTimeout(function() {
-      createData()
-    }, 20000);
-  }
+  })
 }
 
 createData()
@@ -485,35 +408,40 @@ function getWebsiteContent(coin, name, url){
     function getData(){
       request(url, function (error, response, body) {
         // console.error('error:', error); // Print the error if one occurred
-        // console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+        console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
         // console.log('body:', body); // Print the HTML for the Google homepage.
-        try {
-          var pricechange = body.split("details-panel-item--price")[2].split("toolbar-buttons")[0]
-          pricechange = pricechange.split("toolbar-buttons")[0]
-          pricechange = pricechange.split("data-format-percentage")[1].split("</span>")[0].split(">")[1]
-          var split = body.split("cmc-cc-summary-table")[1]
-          split = split.split("/table")[0]
-          split = split.split("<th scope=\"row\">\n")
-          var temp = []
-          split.forEach(e => {
-            if(e.toLowerCase().includes('price') || e.toLowerCase().includes('market cap') || e.toLowerCase().includes('24 hour volume') ||
-            e.toLowerCase().includes('circulating supply'))
-            {
-              temp.push(e)
+        if(response && response.statusCode == 200) {
+          try {
+            var pricechange = body.split("details-panel-item--price")[2].split("toolbar-buttons")[0]
+            pricechange = pricechange.split("toolbar-buttons")[0]
+            pricechange = pricechange.split("data-format-percentage")[1].split("</span>")[0].split(">")[1]
+            var split = body.split("cmc-cc-summary-table")[1]
+            split = split.split("/table")[0]
+            split = split.split("<th scope=\"row\">\n")
+            var temp = []
+            split.forEach(e => {
+              if(e.toLowerCase().includes('price') || e.toLowerCase().includes('market cap') || e.toLowerCase().includes('24 hour volume') ||
+              e.toLowerCase().includes('circulating supply'))
+              {
+                temp.push(e)
+              }
+            });
+            for(var i = 0; i < temp.length; i++) {
+              var splt = temp[i].split("\n</th>")
+              var data = splt[1].split("<td>")[1].split("</td>")[0].split("</span>")[0].split(">")
+              temp[i] = splt[0] + "|" + data[data.length - 1].replace(/,|\n|/g, '')
             }
-          });
-          for(var i = 0; i < temp.length; i++) {
-            var splt = temp[i].split("\n</th>")
-            var data = splt[1].split("<td>")[1].split("</td>")[0].split("</span>")[0].split(">")
-            temp[i] = splt[0] + "|" + data[data.length - 1].replace(/,|\n|/g, '')
+            temp.push("Coin change|" + pricechange)
+            rtnData.coin = coin
+            rtnData.data = parseData(temp)
+            rtnData.name = name
+            resolve(rtnData)
           }
-          temp.push("Coin change|" + pricechange)
-          rtnData.coin = coin
-          rtnData.data = parseData(temp)
-          rtnData.name = name
-          resolve(rtnData)
+          catch(ex){
+            getData()
+          }
         }
-        catch(ex){
+        else {
           getData()
         }
       })
