@@ -5,20 +5,20 @@ var isRunning = false
 var currTime = 0
 var lastTime = 0
 
-// var mainfile = "/var/www/html/rates/index.html"
-// var supply = "/var/www/html/rates/supply"
-// var marketcap = "/var/www/html/rates/marketcap"
-// var currPrice = "/var/www/html/rates/price"
-// var currPriceNoRound = "/var/www/html/rates/pricenoround"
-// var priceChangeLoc = "/var/www/html/rates/pricechange"
+var mainfile = "/var/www/html/rates/index.html"
+var supply = "/var/www/html/rates/supply"
+var marketcap = "/var/www/html/rates/marketcap"
+var currPrice = "/var/www/html/rates/price"
+var currPriceNoRound = "/var/www/html/rates/pricenoround"
+var priceChangeLoc = "/var/www/html/rates/pricechange"
 
 
-var mainfile = "index.html"
-var supply = "supply"
-var marketcap = "marketcap"
-var currPrice = "price"
-var currPriceNoRound = "pricenoround"
-var priceChangeLoc = "pricechange"
+// var mainfile = "index.html"
+// var supply = "supply"
+// var marketcap = "marketcap"
+// var currPrice = "price"
+// var currPriceNoRound = "pricenoround"
+// var priceChangeLoc = "pricechange"
 
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
 var xsgUrl = "https://coinmarketcap.com/currencies/snowgem/"
