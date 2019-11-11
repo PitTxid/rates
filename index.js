@@ -21,51 +21,8 @@ var priceChangeLoc = "/var/www/html/rates/pricechange"
 // var priceChangeLoc = "pricechange"
 
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
-var xsgUrl = "https://coinmarketcap.com/currencies/snowgem/"
-var btcUrl = "https://coinmarketcap.com/currencies/bitcoin/"
-var ethUrl = "https://coinmarketcap.com/currencies/ethereum/"
-var bchUrl = "https://coinmarketcap.com/currencies/bitcoin-cash/"
-var zecUrl = "https://coinmarketcap.com/currencies/zcash/"
-var dashUrl = "https://coinmarketcap.com/currencies/dash/"
-var zenUrl = "https://coinmarketcap.com/currencies/zencash/"
 
-var coinist = [
-  {
-    name: 'Bitcoin',
-    symbol: 'btc',
-    url: btcUrl
-  },
-  {
-    name: 'Ethereum',
-    symbol: 'eth',
-    url: ethUrl
-  },
-  {
-    name: 'SnowGem',
-    symbol: 'xsg',
-    url: xsgUrl
-  },
-  {
-    name: 'Bitcoin Cash',
-    symbol: 'bch',
-    url: bchUrl
-  },
-  {
-    name: 'Zcash',
-    symbol: 'zec',
-    url: zecUrl
-  },
-  {
-    name: 'Dash',
-    symbol: 'dash',
-    url: dashUrl
-  },
-  {
-    name: 'Horizen',
-    symbol: 'zen',
-    url: zenUrl
-  },
-]
+var coinist = [ "BTC", "ETH", "XSG", "BCH", "ZEC", "DASH", "ZEN" ]
 
 function curlData(urlRequest, params){
   return new Promise(function(resolve){
@@ -181,7 +138,6 @@ function parseData(data){
 
 
 function createData(){
-  var coinlistClone = JSON.parse(JSON.stringify(coinist))
   lastTime = Math.floor(Date.now() / 1000)
   console.log("getting data")
 
@@ -195,14 +151,7 @@ function createData(){
       var usdgbp = 1 / data.gbp.rate
 
       var finalResult = []
-      if(fs.existsSync(mainfile))
-        finalResult = JSON.parse(fs.readFileSync(mainfile))
 
-      var index = finalResult.findIndex(function(e){return e.code == 'USD'})
-      if(index > -1)
-      {
-        finalResult.splice(index, 1)
-      }
       var usdJson = {}
       usdJson.code = "USD"
       usdJson.symbol = "$"
@@ -211,11 +160,6 @@ function createData(){
       usdJson.price = parseFloat(usd.toFixed(3))
       finalResult.push(usdJson)
 
-      index = finalResult.findIndex(function(e){return e.code == 'EUR'})
-      if(index > -1)
-      {
-        finalResult.splice(index, 1)
-      }
       var eurJson = {}
       eurJson.code = "EUR"
       eurJson.symbol = "€"
@@ -224,11 +168,6 @@ function createData(){
       eurJson.price = parseFloat(usdeur.toFixed(3))
       finalResult.push(eurJson)
 
-      index = finalResult.findIndex(function(e){return e.code == 'RUB'})
-      if(index > -1)
-      {
-        finalResult.splice(index, 1)
-      }
       var rubJson = {}
       rubJson.code = "RUB"
       rubJson.symbol = "₽"
@@ -237,11 +176,6 @@ function createData(){
       rubJson.price = parseFloat(usdrub.toFixed(3))
       finalResult.push(rubJson)
 
-      index = finalResult.findIndex(function(e){return e.code == 'GBP'})
-      if(index > -1)
-      {
-        finalResult.splice(index, 1)
-      }
       var gbpJson = {}
       gbpJson.code = "GBP"
       gbpJson.symbol = "£"
@@ -250,156 +184,150 @@ function createData(){
       gbpJson.price = parseFloat((usdgbp).toFixed(3))
       finalResult.push(gbpJson)
 
-
-      fs.writeFileSync(mainfile, JSON.stringify(finalResult))
-
-      function getData(element){
+      getData('https://coinmarketcap.com/all/views/all/')
+      function getData(url){
         var promisesToMake = [
-          getWebsiteContent(element.symbol, element.name, element.url)
+          getWebsiteContent2(url)
         ]
         var result = Promise.all(promisesToMake);
         result
         .then(function(result){
-          if(result && result.length > 0 && result[0].coin)
+          if(result && result.length > 0)
           {
-            index = finalResult.findIndex(function(e){return e.code == result[0].coin.toUpperCase()})
-            if(index > -1)
-            {
-              finalResult.splice(index, 1)
-            }
-            if(result[0].coin == 'btc'){
-              console.log(result[0])
-              var btcJson = {}
-              btcJson.code = "BTC"
-              btcJson.symbol = "฿"
-              btcJson.name = "Bitcoin"
-              btcJson.rate = 1
-              btcJson.price = result[0].data.price
-              btcJson.pricechange = result[0].data.change
-              btcJson.marketcap = result[0].data.marketcap
-              btcJson.volume24h = result[0].data.volume24h
-              btcJson.circulating = result[0].data.circulating
-              finalResult.push(btcJson)
-              fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+            result = result[0]
+            var btcPrice
+            var ethPrice
+            coinist.forEach(element => {
+              index = result.findIndex(function(e){return e.symbol == element})
+              if(index > -1)
+              {
+                console.log(result[index])
+                if(element == "BTC")
+                {
+                  var btcJson = {}
+                  btcJson.code = "BTC"
+                  btcJson.symbol = "฿"
+                  btcJson.name = "Bitcoin"
+                  btcJson.rate = 1
+                  btcJson.price = btcPrice = result[index].price
+                  btcJson.pricechange = result[index].change24h
+                  btcJson.marketcap = result[index].marketcap
+                  btcJson.volume24h = result[index].volume24h
+                  btcJson.circulating = result[index].circulating
+                  finalResult.push(btcJson)
+                }
+                else if(element == "ETH")
+                {
+                  var btcJson = {}
+                  btcJson.code = "ETH"
+                  btcJson.symbol = "E"
+                  btcJson.name = result[index].fullName
+                  btcJson.price = ethPrice = result[index].price
+                  btcJson.rate = ethPrice / btcPrice
+                  btcJson.pricechange = result[index].change24h
+                  btcJson.marketcap = result[index].marketcap
+                  btcJson.volume24h = result[index].volume24h
+                  btcJson.circulating = result[index].circulating
+                  finalResult.push(btcJson)
+                }
+                else
+                {
+                  var coinJson = {}
+                  coinJson.code = element
+                  coinJson.name = result[index].fullName
+                  coinJson.rate = btcPrice / result[index].price
+                  coinJson.rateETH = ethPrice / result[index].price
+                  coinJson.price = result[index].price
+                  coinJson.pricechange = result[index].change24h
+                  coinJson.marketcap = result[index].marketcap
+                  coinJson.volume24h = result[index].volume24h
+                  coinJson.circulating = result[index].circulating
+                  finalResult.push(coinJson)
 
-              if(coinlistClone.length > 0){
-                var element = coinlistClone[0]
-                coinlistClone.splice(0,1)
-                setTimeout(function(){
-                  getData(element)
-                }, 10000);
+                  if(element == 'XSG')
+                  {
+                    fs.writeFileSync(currPrice, formatNumber(parseFloat(coinJson.price).toFixed(3)))
+                    fs.writeFileSync(currPriceNoRound, formatNumber(parseFloat(coinJson.price)))
+                    fs.writeFileSync(supply, formatNumber(parseFloat(coinJson.circulating).toFixed(2)))
+
+                    //Market cap
+                    fs.writeFileSync(marketcap, formatNumber(parseFloat((coinJson.circulating * coinJson.price).toFixed(2))))
+                  }
+                }
               }
               else
               {
-                setTimeout(function(){
-                  createData()
-                }, 20000);
+                console.log("Cannot find " + element + " data")
               }
-            }
-            else if(result[0].coin == 'eth'){
-              console.log(result[0])
-              var ethJson = {}
-              ethJson.code = "ETH"
-              ethJson.symbol = "E"
-              ethJson.name = "Ethereum"
-              ethJson.rate = 1
-              ethJson.price = result[0].data.price
-              ethJson.pricechange = result[0].data.change
-              ethJson.marketcap = result[0].data.marketcap
-              ethJson.volume24h = result[0].data.volume24h
-              ethJson.circulating = result[0].data.circulating
-              finalResult.push(ethJson)
-              fs.writeFileSync(mainfile, JSON.stringify(finalResult))
-
-              if(coinlistClone.length > 0){
-                var element = coinlistClone[0]
-                coinlistClone.splice(0,1)
-                setTimeout(function(){
-                  getData(element)
-                }, 10000);
-              }
-              else
-              {
-                setTimeout(function(){
-                  createData()
-                }, 20000);
-              }
-            }
-            else
-            {
-              indexBTC = finalResult.findIndex(function(e){return e.code == 'BTC'})
-              indexETH = finalResult.findIndex(function(e){return e.code == 'ETH'})
-              console.log(result[0])
-              var coinJson = {}
-              coinJson.code = result[0].coin.toUpperCase()
-              coinJson.name = result[0].name
-              coinJson.rate = parseFloat((finalResult[indexBTC].price / result[0].data.price).toFixed(2))
-              coinJson.rateETH = parseFloat((finalResult[indexETH].price / result[0].data.price).toFixed(2))
-              coinJson.price = parseFloat((result[0].data.price).toFixed(3))
-              coinJson.pricechange = result[0].data.change
-              coinJson.marketcap = result[0].data.marketcap
-              coinJson.volume24h = result[0].data.volume24h
-              coinJson.circulating = result[0].data.circulating
-              finalResult.push(coinJson)
-              fs.writeFileSync(mainfile, JSON.stringify(finalResult))
-
-              if(result[0].coin == 'xsg')
-              {
-                fs.writeFileSync(currPrice, formatNumber(parseFloat(coinJson.price.toFixed(3))))
-                fs.writeFileSync(currPriceNoRound, formatNumber(parseFloat(coinJson.price)))
-                fs.writeFileSync(supply, formatNumber(parseFloat(coinJson.circulating.toFixed(2))))
-
-                //Market cap
-                fs.writeFileSync(marketcap, formatNumber(parseFloat((coinJson.circulating * coinJson.price).toFixed(2))))
-              }
-              if(coinlistClone.length > 0){
-                var element = coinlistClone[0]
-                coinlistClone.splice(0,1)
-                setTimeout(function(){
-                  getData(element)
-                }, 10000);
-              }
-              else
-              {
-                setTimeout(function(){
-                  createData()
-                  console.log("finished")
-                }, 20000);
-              }
-            }
+            });
+            fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+            console.log("finished, sleep 60 secs")
+            setTimeout(function(){
+              createData()
+            }, 60000);
           }
           else {
-            if(coinlistClone.length > 0){
-              var element = coinlistClone[0]
-              coinlistClone.splice(0,1)
-              setTimeout(function(){
-                getData(element)
-              }, 10000);
-            }
-            else
-            {
-              setTimeout(function(){
-                console.log("finished")
-                createData()
-              }, 20000);
-            }
+            console.log("finished, sleep 60 secs")
+            setTimeout(function(){
+              createData()
+            }, 60000);
           }
         })
       }
-      var element = coinlistClone[0]
-      coinlistClone.splice(0,1)
-      getData(element)
     }
     catch(ex){
+      console.log("exception, sleep 60 secs")
       setTimeout(function() {
         createData()
-      }, 20000);
+      }, 60000);
     }
 
   })
 }
 
 createData()
+
+function getWebsiteContent2(url){
+  return new Promise(async function(resolve){
+    var rtnData = []
+    getData()
+    function getData(){
+      request(url, function (error, response, body) {
+        // console.error('error:', error); // Print the error if one occurred
+        console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+        // console.log('body:', body); // Print the HTML for the Google homepage.
+        if(response && response.statusCode == 200) {
+          try {
+            var tbody = body.split("<tbody>")[1].split("</tbody>")[0]
+            var split = tbody.split("<tr")
+            split.splice(0, 1)
+            split.forEach(element => {
+              var split = element.split("<td")
+              var data = {}
+              data.fullName = split[2].split('">')[0].split('data-sort="')[1]
+              data.symbol = split[3].split('col-symbol">')[1].split('</td>')[0]
+              data.marketcap = split[4].split('data-usd="')[1].split('"')[0]
+              data.price = split[5].split('data-sort="')[1].split('"')[0]
+              data.circulating = split[6].split('data-sort="')[1].split('"')[0]
+              data.volume24h = split[7].split('data-sort="')[1].split('"')[0]
+              data.change1h = split[8].split('data-sort="')[1].split('"')[0]
+              data.change24h = split[9].split('data-sort="')[1].split('"')[0]
+              data.change7d = split[10].split('data-sort="')[1].split('"')[0]
+              rtnData.push(data)
+            });
+            resolve(rtnData)
+          }
+          catch(ex){
+            getData()
+          }
+        }
+        else {
+          getData()
+        }
+      })
+    }
+  })
+}
 
 function getWebsiteContent(coin, name, url){
   return new Promise(async function(resolve){
@@ -449,14 +377,14 @@ function getWebsiteContent(coin, name, url){
   })
 }
 
-setInterval(function() {
-  currTime = Math.floor(Date.now() / 1000)
-  if(currTime - lastTime > 5 * 60 * 1000)
-  {
-    createData()
-  }
-}, 1000);
+// setInterval(function() {
+//   currTime = Math.floor(Date.now() / 1000)
+//   if(currTime - lastTime > 5 * 60 * 1000)
+//   {
+//     createData()
+//   }
+// }, 1000);
 
-// getWebsiteContent('https://coinmarketcap.com/currencies/snowgem/', undefined, 'cmc-cc-summary-table', function(data){
+// getWebsiteContent2('https://coinmarketcap.com/all/views/all/', function(data){
 //   fs.writeFileSync("data.txt", data[0])
 // })
