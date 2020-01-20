@@ -15,6 +15,7 @@
     "phantom": "^6.2.0",
     "phantomjs-prebuilt": "^2.1.16",
     "request": "^2.88.0",
+    "request-promise": "^4.2.5",
     "webdriverio": "^5.7.8",
     "webpage": "^0.3.0"
   }

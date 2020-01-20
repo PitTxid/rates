@@ -1,6 +1,7 @@
 const fs = require('fs')
 var request = require('request')
 const phantom = require('phantom');
+const rp = require('request-promise');
 var isRunning = false
 var currTime = 0
 var lastTime = 0
@@ -20,6 +21,7 @@ var priceChangeLoc = "/var/www/html/rates/pricechange"
 // var currPriceNoRound = "pricenoround"
 // var priceChangeLoc = "pricechange"
 
+var cmcApi = "2126f860-ba74-4e1e-b9f9-667ae60a2e34";
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
 
 var coinist = [ "BTC", "ETH", "XSG", "BCH", "ZEC", "DASH", "ZEN" ]
@@ -136,7 +138,29 @@ function parseData(data){
   return rtn
 }
 
+function getPrice(cb){
+  const requestOptions = {
+    method: 'GET',
+    uri: 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest',
+    qs: {
+      'start': '1',
+      'limit': '2000',
+      'convert': 'BTC'
+    },
+    headers: {
+      'X-CMC_PRO_API_KEY': cmcApi
+    },
+    json: true,
+    gzip: true
+  };
 
+  rp(requestOptions).then(response => {
+    fs.writeFileSync("response.txt", JSON.stringify(response));
+    cb(response);
+  }).catch((err) => {
+    cb(null);
+  });
+}
 function createData(){
   lastTime = Math.floor(Date.now() / 1000)
   console.log("getting data")
@@ -210,7 +234,7 @@ function createData(){
                   btcJson.name = "Bitcoin"
                   btcJson.rate = 1
                   btcJson.price = btcPrice = result[index].price
-                  btcJson.pricechange = result[index].change24h
+                  btcJson.pricechange = formatNumber(parseFloat(result[index].change24h).toFixed(2))
                   btcJson.marketcap = result[index].marketcap
                   btcJson.volume24h = result[index].volume24h
                   btcJson.circulating = result[index].circulating
@@ -224,7 +248,7 @@ function createData(){
                   btcJson.name = result[index].fullName
                   btcJson.price = ethPrice = result[index].price
                   btcJson.rate = ethPrice / btcPrice
-                  btcJson.pricechange = result[index].change24h
+                  btcJson.pricechange = formatNumber(parseFloat(result[index].change24h).toFixed(2))
                   btcJson.marketcap = result[index].marketcap
                   btcJson.volume24h = result[index].volume24h
                   btcJson.circulating = result[index].circulating
@@ -238,7 +262,7 @@ function createData(){
                   coinJson.rate = btcPrice / result[index].price
                   coinJson.rateETH = ethPrice / result[index].price
                   coinJson.price = result[index].price
-                  coinJson.pricechange = result[index].change24h
+                  coinJson.pricechange = formatNumber(parseFloat(result[index].change24h).toFixed(2))
                   coinJson.marketcap = result[index].marketcap
                   coinJson.volume24h = result[index].volume24h
                   coinJson.circulating = result[index].circulating
@@ -377,6 +401,7 @@ function getWebsiteContent(coin, name, url){
   })
 }
 
+getPrice();
 // setInterval(function() {
 //   currTime = Math.floor(Date.now() / 1000)
 //   if(currTime - lastTime > 5 * 60 * 1000)
