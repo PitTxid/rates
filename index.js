@@ -21,16 +21,20 @@ var priceChangeLoc = "/var/www/html/rates/pricechange"
 // var currPriceNoRound = "pricenoround"
 // var priceChangeLoc = "pricechange"
 
-var cmcApi = "2126f860-ba74-4e1e-b9f9-667ae60a2e34";
+var indexApi = 0;
+var cmcApis = ["8b2d5f10-bd92-4378-ad7c-cd143651e185", "3fa2b0bb-19e7-4376-8ec1-55ef62e9b91a", "b69a6dde-262e-401e-855e-46e2be8871db", "be37fcab-017b-4681-be2f-05d7b4ec5f0f", 
+               "835736bb-cf97-4d6e-a5a6-f08273a15c63", "2126f860-ba74-4e1e-b9f9-667ae60a2e34", "e8cf920e-4d15-4217-8540-20326fed7bdf", "e8cf920e-4d15-4217-8540-20326fed7bdf",
+               "95a3018d-6596-4f4c-9079-692d4b3a2050", "7baabb0a-0486-453f-80e4-11303a5b929d", "7baabb0a-0486-453f-80e4-11303a5b929d", "58dd3ed3-b9e6-490b-8135-eb29f910c771",
+               "5ce649a3-60c9-4315-87fd-8579eaa8774d", "33591ab9-798c-4613-bd14-d7fe9b5f324e", "33591ab9-798c-4613-bd14-d7fe9b5f324e", "33591ab9-798c-4613-bd14-d7fe9b5f324e"];
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
+var sumUrl = "https://rates.slicewallet.org/api/rates"
+var coinist = ["BTC", "ETH", "XSG", "BCH", "ZEC", "DASH", "ZEN", "BITG", "DGB", "ZEL", "USDT", "BUSD", "LTC", "BTCZ"]
 
-var coinist = [ "BTC", "ETH", "XSG", "BCH", "ZEC", "DASH", "ZEN" ]
-
-function curlData(urlRequest, params){
-  return new Promise(function(resolve){
+function curlData(urlRequest, params) {
+  return new Promise(function (resolve) {
     request.post(urlRequest, {
       json: params
-    }, function(error, res, body){
+    }, function (error, res, body) {
       var result = {}
       if (error) {
         result.error = true
@@ -44,12 +48,21 @@ function curlData(urlRequest, params){
   })
 }
 
-function getUSD(cb){
+function getSum(cb){
+  var promisesToMake = [curlData(sumUrl)]
+  var result = Promise.all(promisesToMake);
+  result.then(function (result) {
+    cb(result[0])
+  }, function (err) {
+    cb(null)
+  })
+}
+function getUSD(cb) {
   var promisesToMake = [curlData(usdUrl)]
   var result = Promise.all(promisesToMake);
-  result.then(function(result){
+  result.then(function (result) {
     cb(result[0])
-  }, function(err) {
+  }, function (err) {
     cb(null)
   })
 }
@@ -58,25 +71,27 @@ function formatNumber(num) {
   return num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,')
 }
 
-function getWebsiteContentOld(coin, name, url, id, classname){
-  return new Promise(async function(resolve){
+function getWebsiteContentOld(coin, name, url, id, classname) {
+  return new Promise(async function (resolve) {
     var driver = await phantom.create();
     var rtnData = {}
-    try
-    {
+    try {
       var page = await driver.createPage();
       page.on('onConsoleMessage', function (msg) {
         // console.log('phantomjs page console message', msg);
       });
-      page.on('onError', function (msg)  {
+      page.on('onError', function (msg) {
         // console.log('phantomjs page console message', msg);
       });
 
-      page.property("viewportSize", {width: 1920, height: 1080}).then(function(){
+      page.property("viewportSize", {
+        width: 1920,
+        height: 1080
+      }).then(function () {
 
       })
 
-      page.on('onResourceRequested', function(requestData) {
+      page.on('onResourceRequested', function (requestData) {
         // console.info('Requesting', requestData.url);
       })
 
@@ -87,12 +102,11 @@ function getWebsiteContentOld(coin, name, url, id, classname){
       //   }
       // })
       await page.open(url)
-      var data = id ? 
-        await page.evaluate(function(s) {
+      var data = id ?
+        await page.evaluate(function (s) {
           return document.getElementsById(s)[0].innerText
-        }, id ? id : classname)
-        :
-        await page.evaluate(function(s) {
+        }, id ? id : classname) :
+        await page.evaluate(function (s) {
           return document.getElementsByClassName(s)[0].innerText;
         }, id ? id : classname)
 
@@ -104,14 +118,12 @@ function getWebsiteContentOld(coin, name, url, id, classname){
       await driver.exit()
       resolve(rtnData)
 
-      function standardData(data){
+      function standardData(data) {
         data = data.replace(/ \t|\t |\t/g, '|')
         data = data.replace(/ \n/g, ' ')
         return data
       }
-    }
-    catch(ex)
-    {
+    } catch (ex) {
       fs.appendFileSync('reject.log', ex.toString() + '\n')
       await driver.exit()
       resolve(rtnData)
@@ -119,55 +131,85 @@ function getWebsiteContentOld(coin, name, url, id, classname){
   })
 }
 
-function parseData(data){
+function parseData(data) {
   var rtn = {}
-  try
-  {
-    var index = data.findIndex(function(e){return e.toLowerCase().includes('price')})
+  try {
+    var index = data.findIndex(function (e) {
+      return e.toLowerCase().includes('price')
+    })
     rtn.price = parseFloat(data[index].split('|')[1])
-    index = data.findIndex(function(e){return e.toLowerCase().includes('market cap')})
+    index = data.findIndex(function (e) {
+      return e.toLowerCase().includes('market cap')
+    })
     rtn.marketcap = parseFloat(data[index].split('|')[1])
-    index = data.findIndex(function(e){return e.toLowerCase().includes('24 hour volume')})
+    index = data.findIndex(function (e) {
+      return e.toLowerCase().includes('24 hour volume')
+    })
     rtn.volume24h = parseFloat(data[index].split('|')[1])
-    index = data.findIndex(function(e){return e.toLowerCase().includes('circulating supply')})
+    index = data.findIndex(function (e) {
+      return e.toLowerCase().includes('circulating supply')
+    })
     rtn.circulating = parseFloat(data[index].split('|')[1])
-    index = data.findIndex(function(e){return e.toLowerCase().includes("coin change")})
+    index = data.findIndex(function (e) {
+      return e.toLowerCase().includes("coin change")
+    })
     rtn.change = parseFloat(data[index].split('|')[1])
-  }
-  catch(ex){}
+  } catch (ex) {}
   return rtn
 }
 
-function getPrice(cb){
-  const requestOptions = {
-    method: 'GET',
-    uri: 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest',
-    qs: {
-      'start': '1',
-      'limit': '2000',
-      'convert': 'BTC'
-    },
-    headers: {
-      'X-CMC_PRO_API_KEY': cmcApi
-    },
-    json: true,
-    gzip: true
-  };
-
-  rp(requestOptions).then(response => {
-    fs.writeFileSync("response.txt", JSON.stringify(response));
-    cb(response);
-  }).catch((err) => {
-    cb(null);
-  });
+function getPrice() {
+  return new Promise(async function (resolve) {
+    function get(cb){
+      const requestOptions = {
+        method: 'GET',
+        uri: 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest',
+        qs: {
+          'start': '1',
+          'limit': '2000',
+          'convert': 'USD'
+        },
+        headers: {
+          'X-CMC_PRO_API_KEY': cmcApis[indexApi]
+        },
+        json: true,
+        gzip: true
+      };
+  
+      rp(requestOptions).then(response => {
+        if (response.status.error_code == 1009) {
+          indexApi += 1;
+          get(cb);
+        }
+        else
+        {
+          cb(response);
+        }
+      }).catch((err) => {
+        console.log(err);
+        if (err.error && err.error.status && (err.error.status.error_code == 1009 || err.error.status.error_code == 1010)) {
+          indexApi += 1;
+          get(cb);
+        }
+        else
+        {
+          cb(undefined);
+        }
+      });
+    }
+    
+    get(function (result){
+      resolve(result);
+    })
+  })
 }
-function createData(){
+
+function createData() {
   lastTime = Math.floor(Date.now() / 1000)
   console.log("getting data")
 
-  getUSD(function cb(data){
-    try
-    {
+  getUSD(function (data) {
+    try {
       data = JSON.parse(data.result)
       var usd = 1
       var usdeur = 1 / data.eur.rate
@@ -208,102 +250,90 @@ function createData(){
       gbpJson.price = parseFloat((usdgbp).toFixed(3))
       finalResult.push(gbpJson)
 
-      getData('https://coinmarketcap.com/all/views/all/')
-      function getData(url){
-        var promisesToMake = [
-          getWebsiteContent2(url)
-        ]
-        var result = Promise.all(promisesToMake);
-        result
-        .then(function(result){
-          if(result && result.length > 0)
-          {
-            result = result[0]
-            var btcPrice
-            var ethPrice
-            coinist.forEach(element => {
-              index = result.findIndex(function(e){return e.symbol == element})
-              if(index > -1)
-              {
-                console.log(result[index])
-                if(element == "BTC")
-                {
-                  var btcJson = {}
-                  btcJson.code = "BTC"
-                  btcJson.symbol = "฿"
-                  btcJson.name = "Bitcoin"
-                  btcJson.rate = 1
-                  btcJson.price = btcPrice = result[index].price
-                  btcJson.pricechange = formatNumber(parseFloat(result[index].change24h).toFixed(2))
-                  btcJson.marketcap = result[index].marketcap
-                  btcJson.volume24h = result[index].volume24h
-                  btcJson.circulating = result[index].circulating
-                  finalResult.push(btcJson)
-                }
-                else if(element == "ETH")
-                {
-                  var btcJson = {}
-                  btcJson.code = "ETH"
-                  btcJson.symbol = "E"
-                  btcJson.name = result[index].fullName
-                  btcJson.price = ethPrice = result[index].price
-                  btcJson.rate = ethPrice / btcPrice
-                  btcJson.pricechange = formatNumber(parseFloat(result[index].change24h).toFixed(2))
-                  btcJson.marketcap = result[index].marketcap
-                  btcJson.volume24h = result[index].volume24h
-                  btcJson.circulating = result[index].circulating
-                  finalResult.push(btcJson)
-                }
-                else
-                {
-                  var coinJson = {}
-                  coinJson.code = element
-                  coinJson.name = result[index].fullName
-                  coinJson.rate = btcPrice / result[index].price
-                  coinJson.rateETH = ethPrice / result[index].price
-                  coinJson.price = result[index].price
-                  coinJson.pricechange = formatNumber(parseFloat(result[index].change24h).toFixed(2))
-                  coinJson.marketcap = result[index].marketcap
-                  coinJson.volume24h = result[index].volume24h
-                  coinJson.circulating = result[index].circulating
-                  finalResult.push(coinJson)
+      getPrice().then(result => {
 
-                  if(element == 'XSG')
-                  {
-                    fs.writeFileSync(currPrice, formatNumber(parseFloat(coinJson.price).toFixed(3)))
-                    fs.writeFileSync(currPriceNoRound, formatNumber(parseFloat(coinJson.price)))
-                    fs.writeFileSync(supply, formatNumber(parseFloat(coinJson.circulating).toFixed(2)))
+        if (result && result.status.error_code == 0) {
+          var btcPrice
+          var ethPrice
+          coinist.forEach(element => {
+            index = result.data.findIndex(function (e) {
+              return e.symbol == element
+            })
+            if (index > -1) {
+              console.log(result.data[index])
+              if (element == "BTC") {
+                var btcJson = {}
+                btcJson.code = "BTC"
+                btcJson.symbol = "฿"
+                btcJson.name = "Bitcoin"
+                btcJson.rate = 1
+                btcJson.price = btcPrice = result.data[index].quote.USD.price
+                btcJson.pricechange = formatNumber(parseFloat(result.data[index].quote.USD.percent_change_24h).toFixed(2))
+                btcJson.marketcap = result.data[index].quote.USD.market_cap
+                btcJson.volume24h = result.data[index].quote.USD.volume_24h
+                btcJson.circulating = result.data[index].quote.USD.circulating_supply
+                finalResult.push(btcJson)
+              } else if (element == "ETH") {
+                var btcJson = {}
+                btcJson.code = "ETH"
+                btcJson.symbol = "E"
+                btcJson.name = result.data[index].name
+                btcJson.price = ethPrice = result.data[index].quote.USD.price
+                btcJson.rate = ethPrice / btcPrice
+                btcJson.pricechange = formatNumber(parseFloat(result.data[index].quote.USD.percent_change_24h).toFixed(2))
+                btcJson.marketcap = result.data[index].quote.USD.market_cap
+                btcJson.volume24h = result.data[index].quote.USD.volume_24h
+                btcJson.circulating = result.data[index].quote.USD.circulating_supply
+                finalResult.push(btcJson)
+              } else {
+                var coinJson = {}
+                coinJson.code = element
+                coinJson.name = result.data[index].quote.USD.name
+                coinJson.rate = btcPrice / result.data[index].quote.USD.price
+                coinJson.rateETH = ethPrice / result.data[index].quote.USD.price
+                coinJson.price = result.data[index].quote.USD.price
+                coinJson.pricechange = formatNumber(parseFloat(result.data[index].quote.USD.percent_change_24h).toFixed(2))
+                coinJson.marketcap = result.data[index].quote.USD.market_cap
+                coinJson.volume24h = result.data[index].quote.USD.volume_24h
+                coinJson.circulating = result.data[index].quote.USD.circulating_supply
+                finalResult.push(coinJson)
 
-                    //Market cap
-                    fs.writeFileSync(marketcap, formatNumber(parseFloat((coinJson.circulating * coinJson.price).toFixed(2))))
-                  }
+                if (element == 'XSG') {
+                  fs.writeFileSync(currPrice, formatNumber(parseFloat(coinJson.price).toFixed(3)))
+                  fs.writeFileSync(currPriceNoRound, formatNumber(parseFloat(coinJson.price)))
+                  fs.writeFileSync(supply, formatNumber(parseFloat(coinJson.circulating).toFixed(2)))
+
+                  //Market cap
+                  fs.writeFileSync(marketcap, formatNumber(parseFloat((coinJson.circulating * coinJson.price).toFixed(2))))
                 }
               }
-              else
-              {
-                console.log("Cannot find " + element + " data")
-              }
-            });
-            fs.writeFileSync(mainfile, JSON.stringify(finalResult))
-            console.log("finished, sleep 60 secs")
-            setTimeout(function(){
-              createData()
-            }, 60000);
-          }
-          else {
-            console.log("finished, sleep 60 secs")
-            setTimeout(function(){
-              createData()
-            }, 60000);
-          }
-        })
-      }
-    }
-    catch(ex){
-      console.log("exception, sleep 60 secs")
-      setTimeout(function() {
+            } else {
+              console.log("Cannot find " + element + " data")
+            }
+          });
+
+          //for sum
+          // getSum().then(res => {
+
+          // }).catch
+          fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+          console.log("finished, sleep 240 secs")
+          setTimeout(function () {
+            createData()
+          }, 4 * 60 * 1000);
+        }
+        else
+        {
+          setTimeout(function () {
+            createData()
+          }, 4 * 60 * 1000);
+        }
+      })
+    } catch (ex) {
+      console.log("exception, sleep 240 secs")
+      setTimeout(function () {
         createData()
-      }, 60000);
+      }, 4 * 60 * 1000);
     }
 
   })
@@ -311,16 +341,17 @@ function createData(){
 
 createData()
 
-function getWebsiteContent2(url){
-  return new Promise(async function(resolve){
+function getWebsiteContent2(url) {
+  return new Promise(async function (resolve) {
     var rtnData = []
     getData()
-    function getData(){
+
+    function getData() {
       request(url, function (error, response, body) {
         // console.error('error:', error); // Print the error if one occurred
         console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
         // console.log('body:', body); // Print the HTML for the Google homepage.
-        if(response && response.statusCode == 200) {
+        if (response && response.statusCode == 200) {
           try {
             var tbody = body.split("<tbody>")[1].split("</tbody>")[0]
             var split = tbody.split("<tr")
@@ -340,12 +371,10 @@ function getWebsiteContent2(url){
               rtnData.push(data)
             });
             resolve(rtnData)
-          }
-          catch(ex){
+          } catch (ex) {
             getData()
           }
-        }
-        else {
+        } else {
           getData()
         }
       })
@@ -353,16 +382,17 @@ function getWebsiteContent2(url){
   })
 }
 
-function getWebsiteContent(coin, name, url){
-  return new Promise(async function(resolve){
+function getWebsiteContent(coin, name, url) {
+  return new Promise(async function (resolve) {
     var rtnData = {}
     getData()
-    function getData(){
+
+    function getData() {
       request(url, function (error, response, body) {
         // console.error('error:', error); // Print the error if one occurred
         console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
         // console.log('body:', body); // Print the HTML for the Google homepage.
-        if(response && response.statusCode == 200) {
+        if (response && response.statusCode == 200) {
           try {
             var pricechange = body.split("details-panel-item--price")[2].split("toolbar-buttons")[0]
             pricechange = pricechange.split("toolbar-buttons")[0]
@@ -372,13 +402,12 @@ function getWebsiteContent(coin, name, url){
             split = split.split("<th scope=\"row\">\n")
             var temp = []
             split.forEach(e => {
-              if(e.toLowerCase().includes('price') || e.toLowerCase().includes('market cap') || e.toLowerCase().includes('24 hour volume') ||
-              e.toLowerCase().includes('circulating supply'))
-              {
+              if (e.toLowerCase().includes('price') || e.toLowerCase().includes('market cap') || e.toLowerCase().includes('24 hour volume') ||
+                e.toLowerCase().includes('circulating supply')) {
                 temp.push(e)
               }
             });
-            for(var i = 0; i < temp.length; i++) {
+            for (var i = 0; i < temp.length; i++) {
               var splt = temp[i].split("\n</th>")
               var data = splt[1].split("<td>")[1].split("</td>")[0].split("</span>")[0].split(">")
               temp[i] = splt[0] + "|" + data[data.length - 1].replace(/,|\n|/g, '')
@@ -388,12 +417,10 @@ function getWebsiteContent(coin, name, url){
             rtnData.data = parseData(temp)
             rtnData.name = name
             resolve(rtnData)
-          }
-          catch(ex){
+          } catch (ex) {
             getData()
           }
-        }
-        else {
+        } else {
           getData()
         }
       })
@@ -401,7 +428,6 @@ function getWebsiteContent(coin, name, url){
   })
 }
 
-getPrice();
 // setInterval(function() {
 //   currTime = Math.floor(Date.now() / 1000)
 //   if(currTime - lastTime > 5 * 60 * 1000)
