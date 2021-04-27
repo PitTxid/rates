@@ -6,11 +6,11 @@ var isRunning = false
 var currTime = 0
 var lastTime = 0
 
-var mainfile = "/var/www/html/rates/index.html"
-var supply = "/var/www/html/rates/supply"
-var marketcap = "/var/www/html/rates/marketcap"
-var currPrice = "/var/www/html/rates/price"
-var currPriceNoRound = "/var/www/html/rates/pricenoround"
+var mainfile = "/var/www/html/rates/rates/index.html"
+var supply = "/var/www/html/rates/rates/supply"
+var marketcap = "/var/www/html/rates/rates/marketcap"
+var currPrice = "/var/www/html/rates/rates/price"
+var currPriceNoRound = "/var/www/html/rates/rates/pricenoround"
 var priceChangeLoc = "/var/www/html/rates/pricechange"
 
 
@@ -22,14 +22,19 @@ var priceChangeLoc = "/var/www/html/rates/pricechange"
 // var priceChangeLoc = "pricechange"
 
 var indexApi = 0;
-var cmcApis = ["8b2d5f10-bd92-4378-ad7c-cd143651e185", "3fa2b0bb-19e7-4376-8ec1-55ef62e9b91a", "b69a6dde-262e-401e-855e-46e2be8871db", "be37fcab-017b-4681-be2f-05d7b4ec5f0f", 
-               "835736bb-cf97-4d6e-a5a6-f08273a15c63", "2126f860-ba74-4e1e-b9f9-667ae60a2e34", "e8cf920e-4d15-4217-8540-20326fed7bdf", "e8cf920e-4d15-4217-8540-20326fed7bdf",
-               "95a3018d-6596-4f4c-9079-692d4b3a2050", "7baabb0a-0486-453f-80e4-11303a5b929d", "7baabb0a-0486-453f-80e4-11303a5b929d", "58dd3ed3-b9e6-490b-8135-eb29f910c771",
-               "5ce649a3-60c9-4315-87fd-8579eaa8774d", "33591ab9-798c-4613-bd14-d7fe9b5f324e", "33591ab9-798c-4613-bd14-d7fe9b5f324e", "33591ab9-798c-4613-bd14-d7fe9b5f324e"];
+var cmcApis = ["8b2d5f10-bd92-4378-ad7c-cd143651e185", "3fa2b0bb-19e7-4376-8ec1-55ef62e9b91a", "b69a6dde-262e-401e-855e-46e2be8871db", "be37fcab-017b-4681-be2f-05d7b4ec5f0f",
+  "835736bb-cf97-4d6e-a5a6-f08273a15c63", "2126f860-ba74-4e1e-b9f9-667ae60a2e34", "e8cf920e-4d15-4217-8540-20326fed7bdf", "e8cf920e-4d15-4217-8540-20326fed7bdf",
+  "95a3018d-6596-4f4c-9079-692d4b3a2050", "7baabb0a-0486-453f-80e4-11303a5b929d", "7baabb0a-0486-453f-80e4-11303a5b929d", "58dd3ed3-b9e6-490b-8135-eb29f910c771",
+  "5ce649a3-60c9-4315-87fd-8579eaa8774d", "33591ab9-798c-4613-bd14-d7fe9b5f324e", "33591ab9-798c-4613-bd14-d7fe9b5f324e", "33591ab9-798c-4613-bd14-d7fe9b5f324e",
+  "0a46a02e-e607-4e70-8a69-045d33329814", "923db9a7-8eba-4c16-80c2-82e44dfe0f07", "d5f32400-c1c7-4846-98d4-322d4eb139ef", "163eca81-5572-4679-ba57-94bdb142f6ea"]; //t17-20
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
-var sumUrl = "https://rates.slicewallet.org/api/rates"
-var coinist = ["BTC", "ETH", "XSG", "BCH", "ZEC", "DASH", "ZEN", "BITG", "DGB", "ZEL", "USDT", "BUSD", "LTC", "BTCZ"]
+var sumUrl = "https://sumcoinindex.com/rates/price2.json"
 
+var coinist = ["BTC", "ETH", "TENT", "BCH", "ZEC", "DASH", "ZEN", "BITG", "DGB", "ZEL", "USDT", "BUSD", "LTC", "BTCZ", "SUM", "ZER", "PIRL", "VDL", "DOGE"]
+
+function getCoinList() {
+  return JSON.parse(fs.readFileSync("coinlist.json"));
+}
 function curlData(urlRequest, params) {
   return new Promise(function (resolve) {
     request.post(urlRequest, {
@@ -48,8 +53,24 @@ function curlData(urlRequest, params) {
   })
 }
 
-function getSum(cb){
-  var promisesToMake = [curlData(sumUrl)]
+function getData(urlRequest) {
+  return new Promise(function (resolve) {
+    request.get(urlRequest, function (error, res, body) {
+      var result = {}
+      if (error) {
+        result.error = true
+        result.result = error
+      } else {
+        result.error = false
+        result.result = body
+      }
+      resolve(result)
+    })
+  })
+}
+
+function getSum(cb) {
+  var promisesToMake = [getData(sumUrl)]
   var result = Promise.all(promisesToMake);
   result.then(function (result) {
     cb(result[0])
@@ -154,13 +175,13 @@ function parseData(data) {
       return e.toLowerCase().includes("coin change")
     })
     rtn.change = parseFloat(data[index].split('|')[1])
-  } catch (ex) {}
+  } catch (ex) { }
   return rtn
 }
 
 function getPrice() {
   return new Promise(async function (resolve) {
-    function get(cb){
+    function get(cb) {
       const requestOptions = {
         method: 'GET',
         uri: 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest',
@@ -175,30 +196,34 @@ function getPrice() {
         json: true,
         gzip: true
       };
-  
+
       rp(requestOptions).then(response => {
         if (response.status.error_code == 1009) {
           indexApi += 1;
-          get(cb);
+          setTimeout(function () {
+            get(cb);
+          }, 10 * 1000);
         }
-        else
-        {
+        else {
           cb(response);
         }
       }).catch((err) => {
-        console.log(err);
+        if (err.error && err.error.status) {
+          console.log(err.error.status.error_message);
+        }
         if (err.error && err.error.status && (err.error.status.error_code == 1009 || err.error.status.error_code == 1010)) {
           indexApi += 1;
-          get(cb);
+          setTimeout(function () {
+            get(cb);
+          }, 10 * 1000);
         }
-        else
-        {
+        else {
           cb(undefined);
         }
       });
     }
-    
-    get(function (result){
+
+    get(function (result) {
       resolve(result);
     })
   })
@@ -255,6 +280,11 @@ function createData() {
         if (result && result.status.error_code == 0) {
           var btcPrice
           var ethPrice
+          var cc = getCoinList();
+          coinist = [...coinist, ...cc];
+          coinist = coinist.filter(function (elem, index, self) {
+            return index === self.indexOf(elem);
+          })
           coinist.forEach(element => {
             index = result.data.findIndex(function (e) {
               return e.symbol == element
@@ -298,13 +328,19 @@ function createData() {
                 coinJson.circulating = result.data[index].quote.USD.circulating_supply
                 finalResult.push(coinJson)
 
-                if (element == 'XSG') {
+                if (element == 'XSG' || element == 'TENT') {
                   fs.writeFileSync(currPrice, formatNumber(parseFloat(coinJson.price).toFixed(3)))
                   fs.writeFileSync(currPriceNoRound, formatNumber(parseFloat(coinJson.price)))
                   fs.writeFileSync(supply, formatNumber(parseFloat(coinJson.circulating).toFixed(2)))
 
                   //Market cap
                   fs.writeFileSync(marketcap, formatNumber(parseFloat((coinJson.circulating * coinJson.price).toFixed(2))))
+                  if (element == 'TENT') {
+                    var cp = { ...coinJson };
+                    cp.code = "XSG"
+                    cp.name = "XSG"
+                    finalResult.push(cp)
+                  }
                 }
               }
             } else {
@@ -313,17 +349,41 @@ function createData() {
           });
 
           //for sum
-          // getSum().then(res => {
+          getSum(function (dataaa) {
+            if (dataaa != null) {
+              var jsSum = JSON.parse(dataaa.result);
+              var coinJson = {}
+              coinJson.code = 'SUM'
+              coinJson.name = 'Sumcoin'
+              coinJson.pricechange = 0
+              finalResult.push(coinJson)
 
-          // }).catch
-          fs.writeFileSync(mainfile, JSON.stringify(finalResult))
-          console.log("finished, sleep 240 secs")
-          setTimeout(function () {
-            createData()
-          }, 4 * 60 * 1000);
+              var idx = finalResult.findIndex(e => e.code == "SUM");
+              if (idx > -1) {
+                // var idx2 = jsSum.findIndex(e => e.code == "USD");
+                finalResult[idx].rate = btcPrice / jsSum.exch_rate;
+                finalResult[idx].rateETH = ethPrice / jsSum.exch_rate
+                finalResult[idx].price = jsSum.exch_rate
+                finalResult[idx].marketcap = jsSum["marketcap_USD"]
+                finalResult[idx].volume24h = jsSum["24hrvolume_USD"]
+                finalResult[idx].circulating = Math.floor(jsSum["24hrvolume_USD"] / jsSum.exch_rate)
+              }
+              fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+              console.log("finished, sleep 240 secs")
+              setTimeout(function () {
+                createData()
+              }, 4 * 60 * 1000);
+            }
+            else {
+              fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+              console.log("finished, sleep 240 secs")
+              setTimeout(function () {
+                createData()
+              }, 4 * 60 * 1000);
+            }
+          })
         }
-        else
-        {
+        else {
           setTimeout(function () {
             createData()
           }, 4 * 60 * 1000);
