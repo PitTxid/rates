@@ -2,6 +2,11 @@ const fs = require('fs')
 var request = require('request')
 const phantom = require('phantom');
 const rp = require('request-promise');
+const express = require('express');
+const app = express();
+var cors = require('cors');
+const BodyParse = require('body-parser')
+
 var isRunning = false
 var currTime = 0
 var lastTime = 0
@@ -13,6 +18,25 @@ var currPrice = "/var/www/html/rates/rates/price"
 var currPriceNoRound = "/var/www/html/rates/rates/pricenoround"
 var priceChangeLoc = "/var/www/html/rates/pricechange"
 
+app.all('', function (req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header('Access-Control-Allow-Methods', 'PUT, GET, POST, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  // Auth Each API Request created by user.
+  next();
+});
+
+app.use(function (req, res, next) {
+  if (req.path.indexOf('.') === -1) {
+    res.setHeader('Content-Type', 'text/html');
+  }
+  next();
+});
+app.use('/', express.static(__dirname + '/.well-known'));
+app.use(express.static(__dirname + '/'));
+app.use(BodyParse.urlencoded({ extended: false }));
+app.use(BodyParse.json());
+app.use(cors());
 
 // var mainfile = "index.html"
 // var supply = "supply"
@@ -31,10 +55,20 @@ var usdUrl = "http://www.floatrates.com/daily/usd.json"
 var sumUrl = "https://sumcoinindex.com/rates/price2.json"
 
 var coinist = ["BTC", "ETH", "TENT", "BCH", "ZEC", "DASH", "ZEN", "BITG", "DGB", "ZEL", "USDT", "BUSD", "LTC", "BTCZ", "SUM", "ZER", "PIRL", "VDL", "DOGE"]
-
+var cc = getCoinList();
+coinist = [...coinist, ...cc];
+coinist = coinist.filter(function (elem, index, self) {
+  return index === self.indexOf(elem);
+})
 function getCoinList() {
-  return JSON.parse(fs.readFileSync("coinlist.json"));
+  try {
+    return JSON.parse(fs.readFileSync("coinlist.json"));
+  }
+  catch (ex) {
+    return []
+  }
 }
+
 function curlData(urlRequest, params) {
   return new Promise(function (resolve) {
     request.post(urlRequest, {
@@ -488,14 +522,25 @@ function getWebsiteContent(coin, name, url) {
   })
 }
 
-// setInterval(function() {
-//   currTime = Math.floor(Date.now() / 1000)
-//   if(currTime - lastTime > 5 * 60 * 1000)
-//   {
-//     createData()
-//   }
-// }, 1000);
+app.post("/addcoin", (req, res) => { // mongoDB
+  if (req.body) {
+    console.log("Add new coin", req.body)
+    var newCoin = req.body.coin;
+    if (!coinist.includes(newCoin)) {
+      coinist = getCoinList();
+      coinist = [...coinist, ...[newCoin]];
+      coinist = coinist.filter(function (elem, index, self) {
+        return index === self.indexOf(elem);
+      })
+      fs.writeFileSync("coinlist.json", JSON.stringify(coinist))
+      res.json({ result: "success" });
+    }
+    else {
+      res.json({ result: "failed" });
 
-// getWebsiteContent2('https://coinmarketcap.com/all/views/all/', function(data){
-//   fs.writeFileSync("data.txt", data[0])
-// })
+    }
+  }
+  res.end();
+})
+
+app.listen(7777);
