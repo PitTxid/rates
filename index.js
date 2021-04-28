@@ -18,6 +18,9 @@ var currPrice = "/var/www/html/rates/rates/price"
 var currPriceNoRound = "/var/www/html/rates/rates/pricenoround"
 var priceChangeLoc = "/var/www/html/rates/pricechange"
 
+if (!fs.existsSync("/var/www/html/rates/rates")) {
+  fs.mkdirSync("/var/www/html/rates/rates", { recursive: true });
+}
 app.all('', function (req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
   res.header('Access-Control-Allow-Methods', 'PUT, GET, POST, DELETE, OPTIONS');
@@ -363,12 +366,12 @@ function createData() {
                 finalResult.push(coinJson)
 
                 if (element == 'XSG' || element == 'TENT') {
-                  fs.writeFileSync(currPrice, formatNumber(parseFloat(coinJson.price).toFixed(3)))
-                  fs.writeFileSync(currPriceNoRound, formatNumber(parseFloat(coinJson.price)))
-                  fs.writeFileSync(supply, formatNumber(parseFloat(coinJson.circulating).toFixed(2)))
+                  fs.writeFileSync(currPrice, formatNumber(parseFloat(coinJson.price).toFixed(3)), { flag: 'wx' })
+                  fs.writeFileSync(currPriceNoRound, formatNumber(parseFloat(coinJson.price)), { flag: 'wx' })
+                  fs.writeFileSync(supply, formatNumber(parseFloat(coinJson.circulating).toFixed(2)), { flag: 'wx' })
 
                   //Market cap
-                  fs.writeFileSync(marketcap, formatNumber(parseFloat((coinJson.circulating * coinJson.price).toFixed(2))))
+                  fs.writeFileSync(marketcap, formatNumber(parseFloat((coinJson.circulating * coinJson.price).toFixed(2))), { flag: 'wx' })
                   if (element == 'TENT') {
                     var cp = { ...coinJson };
                     cp.code = "XSG"
@@ -402,14 +405,14 @@ function createData() {
                 finalResult[idx].volume24h = jsSum["24hrvolume_USD"]
                 finalResult[idx].circulating = Math.floor(jsSum["24hrvolume_USD"] / jsSum.exch_rate)
               }
-              fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+              fs.writeFileSync(mainfile, JSON.stringify(finalResult), { flag: 'wx' })
               console.log("finished, sleep 240 secs")
               setTimeout(function () {
                 createData()
               }, 4 * 60 * 1000);
             }
             else {
-              fs.writeFileSync(mainfile, JSON.stringify(finalResult))
+              fs.writeFileSync(mainfile, JSON.stringify(finalResult), { flag: 'wx' })
               console.log("finished, sleep 240 secs")
               setTimeout(function () {
                 createData()
@@ -532,7 +535,7 @@ app.post("/addcoin", (req, res) => { // mongoDB
       coinist = coinist.filter(function (elem, index, self) {
         return index === self.indexOf(elem);
       })
-      fs.writeFileSync("coinlist.json", JSON.stringify(coinist))
+      fs.writeFileSync("coinlist.json", JSON.stringify(coinist), { flag: 'wx' })
       res.json({ result: "success" });
     }
     else {
