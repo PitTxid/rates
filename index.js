@@ -16,7 +16,12 @@ var supply = "/var/www/html/rates/rates/supply"
 var marketcap = "/var/www/html/rates/rates/marketcap"
 var currPrice = "/var/www/html/rates/rates/price"
 var currPriceNoRound = "/var/www/html/rates/rates/pricenoround"
-var priceChangeLoc = "/var/www/html/rates/pricechange"
+
+var mainfile2 = "/var/www/html/rates/index.html"
+var supply2 = "/var/www/html/rates/supply"
+var marketcap2 = "/var/www/html/rates/marketcap"
+var currPrice2 = "/var/www/html/rates/price"
+var currPriceNoRound2 = "/var/www/html/rates/pricenoround"
 
 if (!fs.existsSync("/var/www/html/rates/rates")) {
   fs.mkdirSync("/var/www/html/rates/rates", { recursive: true });
@@ -53,7 +58,11 @@ var cmcApis = ["8b2d5f10-bd92-4378-ad7c-cd143651e185", "3fa2b0bb-19e7-4376-8ec1-
   "835736bb-cf97-4d6e-a5a6-f08273a15c63", "2126f860-ba74-4e1e-b9f9-667ae60a2e34", "e8cf920e-4d15-4217-8540-20326fed7bdf", "e8cf920e-4d15-4217-8540-20326fed7bdf",
   "95a3018d-6596-4f4c-9079-692d4b3a2050", "7baabb0a-0486-453f-80e4-11303a5b929d", "7baabb0a-0486-453f-80e4-11303a5b929d", "58dd3ed3-b9e6-490b-8135-eb29f910c771",
   "5ce649a3-60c9-4315-87fd-8579eaa8774d", "33591ab9-798c-4613-bd14-d7fe9b5f324e", "33591ab9-798c-4613-bd14-d7fe9b5f324e", "33591ab9-798c-4613-bd14-d7fe9b5f324e",
-  "0a46a02e-e607-4e70-8a69-045d33329814", "923db9a7-8eba-4c16-80c2-82e44dfe0f07", "d5f32400-c1c7-4846-98d4-322d4eb139ef", "163eca81-5572-4679-ba57-94bdb142f6ea"]; //t17-20
+  "0a46a02e-e607-4e70-8a69-045d33329814", "923db9a7-8eba-4c16-80c2-82e44dfe0f07", "d5f32400-c1c7-4846-98d4-322d4eb139ef", "163eca81-5572-4679-ba57-94bdb142f6ea", //t17-20
+  "5a9c49e5-31b8-498d-8483-b75abdbf02ff", "9f7b3081-4d00-45b6-88f5-ca85cb3ab1ac", "9f7b3081-4d00-45b6-88f5-ca85cb3ab1ac", "b4d9b0e3-96f0-4550-8718-d73bf2ff638b",
+  "b4d9b0e3-96f0-4550-8718-d73bf2ff638b", "b4d9b0e3-96f0-4550-8718-d73bf2ff638b", "2f618f58-4ad6-49de-8d08-6bfff2a9385e", "2f618f58-4ad6-49de-8d08-6bfff2a9385e"]; //t25-28
+
+  
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
 var sumUrl = "https://sumcoinindex.com/rates/price2.json"
 
@@ -369,9 +378,15 @@ function createData() {
                   fs.writeFileSync(currPrice, formatNumber(parseFloat(coinJson.price).toFixed(3)), { flag: 'w+' })
                   fs.writeFileSync(currPriceNoRound, formatNumber(parseFloat(coinJson.price)), { flag: 'w+' })
                   fs.writeFileSync(supply, formatNumber(parseFloat(coinJson.circulating).toFixed(2)), { flag: 'w+' })
-
                   //Market cap
                   fs.writeFileSync(marketcap, formatNumber(parseFloat((coinJson.circulating * coinJson.price).toFixed(2))), { flag: 'w+' })
+
+                  fs.writeFileSync(currPrice2, formatNumber(parseFloat(coinJson.price).toFixed(3)), { flag: 'w+' })
+                  fs.writeFileSync(currPriceNoRound2, formatNumber(parseFloat(coinJson.price)), { flag: 'w+' })
+                  fs.writeFileSync(supply2, formatNumber(parseFloat(coinJson.circulating).toFixed(2)), { flag: 'w+' })
+
+                  //Market cap
+                  fs.writeFileSync(marketcap2, formatNumber(parseFloat((coinJson.circulating * coinJson.price).toFixed(2))), { flag: 'w+' })
                   if (element == 'TENT') {
                     var cp = { ...coinJson };
                     cp.code = "XSG"
@@ -406,6 +421,7 @@ function createData() {
                 finalResult[idx].circulating = Math.floor(jsSum["24hrvolume_USD"] / jsSum.exch_rate)
               }
               fs.writeFileSync(mainfile, JSON.stringify(finalResult), { flag: 'w+' })
+              fs.writeFileSync(mainfile2, JSON.stringify(finalResult), { flag: 'w+' })
               console.log("finished, sleep 240 secs")
               setTimeout(function () {
                 createData()
@@ -413,6 +429,7 @@ function createData() {
             }
             else {
               fs.writeFileSync(mainfile, JSON.stringify(finalResult), { flag: 'w+' })
+              fs.writeFileSync(mainfile2, JSON.stringify(finalResult), { flag: 'w+' })
               console.log("finished, sleep 240 secs")
               setTimeout(function () {
                 createData()
