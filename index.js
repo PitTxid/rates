@@ -62,7 +62,6 @@ var cmcApis = ["8b2d5f10-bd92-4378-ad7c-cd143651e185", "3fa2b0bb-19e7-4376-8ec1-
   "5a9c49e5-31b8-498d-8483-b75abdbf02ff", "9f7b3081-4d00-45b6-88f5-ca85cb3ab1ac", "9f7b3081-4d00-45b6-88f5-ca85cb3ab1ac", "b4d9b0e3-96f0-4550-8718-d73bf2ff638b",
   "b4d9b0e3-96f0-4550-8718-d73bf2ff638b", "b4d9b0e3-96f0-4550-8718-d73bf2ff638b", "2f618f58-4ad6-49de-8d08-6bfff2a9385e", "2f618f58-4ad6-49de-8d08-6bfff2a9385e"]; //t25-28
 
-  
 var usdUrl = "http://www.floatrates.com/daily/usd.json"
 var sumUrl = "https://sumcoinindex.com/rates/price2.json"
 
@@ -347,7 +346,7 @@ function createData() {
                 btcJson.pricechange = formatNumber(parseFloat(result.data[index].quote.USD.percent_change_24h).toFixed(2))
                 btcJson.marketcap = result.data[index].quote.USD.market_cap
                 btcJson.volume24h = result.data[index].quote.USD.volume_24h
-                btcJson.circulating = result.data[index].quote.USD.circulating_supply
+                btcJson.circulating = result.data[index].circulating_supply
                 finalResult.push(btcJson)
               } else if (element == "ETH") {
                 var btcJson = {}
@@ -359,10 +358,11 @@ function createData() {
                 btcJson.pricechange = formatNumber(parseFloat(result.data[index].quote.USD.percent_change_24h).toFixed(2))
                 btcJson.marketcap = result.data[index].quote.USD.market_cap
                 btcJson.volume24h = result.data[index].quote.USD.volume_24h
-                btcJson.circulating = result.data[index].quote.USD.circulating_supply
+                btcJson.circulating = result.data[index].circulating_supply
                 finalResult.push(btcJson)
               } else {
                 var coinJson = {}
+                console.log(result.data[index]);
                 coinJson.code = element
                 coinJson.name = result.data[index].quote.USD.name
                 coinJson.rate = btcPrice / result.data[index].quote.USD.price
@@ -371,7 +371,7 @@ function createData() {
                 coinJson.pricechange = formatNumber(parseFloat(result.data[index].quote.USD.percent_change_24h).toFixed(2))
                 coinJson.marketcap = result.data[index].quote.USD.market_cap
                 coinJson.volume24h = result.data[index].quote.USD.volume_24h
-                coinJson.circulating = result.data[index].quote.USD.circulating_supply
+                coinJson.circulating = result.data[index].circulating_supply
                 finalResult.push(coinJson)
 
                 if (element == 'XSG' || element == 'TENT') {
